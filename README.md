@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://sudoku-dojo.vercel.app"><strong>▶ Play it now</strong></a> ·
-  <a href="https://sudoku-dojo.vercel.app/app/">Open the app</a> ·
+  <a href="https://sudoku-dojo-eight.vercel.app"><strong>▶ Play it now</strong></a> ·
+  <a href="https://sudoku-dojo-eight.vercel.app/app/">Open the app</a> ·
   <a href="#run-it-locally">Run locally</a>
 </p>
 
