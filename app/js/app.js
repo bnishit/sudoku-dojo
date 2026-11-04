@@ -1,7 +1,7 @@
 import * as E from './engine.js';
 import * as H from './habit.js';
 import * as C from './coach.js';
-import { hasNativeBridge, download, share as shareResult } from './native.js';
+import { hasNativeBridge, download, share as shareResult, reminder, onReminderStatus, onNativeOpen } from './native.js';
 import { BANK } from '../data/bank.js';
 import { LESSONS, BELTS, TIERS } from './lessons.js';
 import { Board, md } from './board.js';
@@ -14,13 +14,14 @@ const app = $('#app');
 const KEY = 'sudoku-dojo-v1'; // old name kept on purpose: changing it would wipe every saved game
 const fresh = () => ({
   coach: { stats: {}, moments: [] }, xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
-  settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
+  settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, reminderOn: false, remindAt: '08:00' }, game: null, rushBest: 0,
 });
 let S = load();
 function load(raw = localStorage.getItem(KEY)) {
   try {
     const d = JSON.parse(raw || '{}'), f = fresh();
     const s = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
+    s.settings.reminderOn = s.settings.reminderOn === true;
     s.coach = { ...f.coach, ...(d.coach || {}) };
     // migrate release-1 saves
     if (d.streak?.last && !d.days) s.days = [d.streak.last];
@@ -33,11 +34,23 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { 
 fx.sound = S.settings.sound;
 
 const today = () => H.dayKey();
+let reminderDenied = false;
+const syncReminder = (requestPermission = false) => reminder(S.settings, S.days.includes(today()), requestPermission);
+onNativeOpen(() => syncReminder());
+onReminderStatus(({ on, denied }) => {
+  S.settings.reminderOn = on; reminderDenied = denied; save();
+  const toggle = $('[data-k=reminderOn]');
+  if (toggle) toggle.checked = on;
+  const note = $('#reminderDenied');
+  if (note) note.hidden = !denied;
+});
 const streakNow = () => H.streak(S.days, today());
 // Any XP comes from real practice, so it also marks today as a practice day.
 function award(xp, why) {
   S.xp += xp;
+  const wasPractised = S.days.includes(today());
   S.days = H.addDay(S.days, today());
+  if (!wasPractised) syncReminder();
   S.bestStreak = Math.max(S.bestStreak, streakNow());
   save();
   toast(`+${xp} XP${why ? ' · ' + why : ''}`, 'xp');
@@ -156,6 +169,7 @@ function shell(tab, body) {
 const logoSvg = () => `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="var(--accent)"/><path d="M12 6v20M20 6v20M6 12h20M6 20h20" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/><circle cx="16" cy="16" r="3.2" fill="#fff"/></svg>`;
 
 function route() {
+  syncReminder();
   clearTimers();
   active = null;
   document.querySelectorAll('.overlay').forEach(o => o.remove());
@@ -1184,8 +1198,9 @@ function screenMe() {
     </div>
     <h2 class="sec-title">Daily reminder</h2>
     <div class="card" style="padding:16px">
-      <p class="muted small" style="margin:0 0 8px">Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.</p>
-      <div class="remind-row"><input type="time" id="remindAt" value="${S.settings.remindAt}">${hasNativeBridge() ? '' : '<button class="btn primary sm" id="ics">Add to my calendar</button>'}</div>
+      <p class="muted small" style="margin:0 0 8px">${hasNativeBridge() ? "We'll send one gentle nudge a day. Skipped if you've already practised." : 'Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.'}</p>
+      ${hasNativeBridge() ? toggle('reminderOn', 'Daily reminder', 'One gentle nudge at your chosen time') + `<p id="reminderDenied" class="muted small" role="status" ${reminderDenied ? '' : 'hidden'}>Turn on notifications for Sudoku Belts in Settings.</p>` : ''}
+      <div class="remind-row"><input type="time" aria-label="Reminder time" id="remindAt" value="${S.settings.remindAt}">${hasNativeBridge() ? '' : '<button class="btn primary sm" id="ics">Add to my calendar</button>'}</div>
     </div>
     <h2 class="sec-title">Belts</h2>
     <div class="belts-row">${BELTS.map(b => `<div class="belt-tile ${b.lessons.every(lessonDone) ? 'got' : ''}"><span class="belt-big sm" style="--belt:${b.color}"></span><small>${b.name.replace(' Belt', '')}</small></div>`).join('')}</div>
@@ -1204,16 +1219,18 @@ function screenMe() {
     </div>
     <h2 class="sec-title">Back up your progress</h2>
     <div class="card" style="padding:16px">
-      <p class="muted small" style="margin:0 0 8px">Progress lives in this browser only. Clearing site data or switching phones wipes it. Save a backup file now and then, and open it here to bring everything back.</p>
+      <p class="muted small" style="margin:0 0 8px">${hasNativeBridge() ? 'Progress lives on this phone only. Deleting the app wipes it. Save a backup file now and then, and open it here to bring everything back.' : 'Progress lives in this browser only. Clearing site data or switching phones wipes it. Save a backup file now and then, and open it here to bring everything back.'}</p>
       <div class="row gap"><button class="btn primary sm" id="export">Save backup file</button><label class="btn ghost sm" for="import">Restore from file</label><input type="file" id="import" accept=".json,application/json" hidden></div>
     </div>
     <p class="muted small">XP = points for practising.</p>
     <button class="btn link danger" id="reset">Reset all progress</button>`);
   app.querySelectorAll('.toggle input').forEach(inp => inp.onchange = () => {
-    S.settings[inp.dataset.k] = inp.checked; fx.sound = S.settings.sound; save(); sfx('tap');
+    S.settings[inp.dataset.k] = inp.checked;
+    if (inp.dataset.k === 'reminderOn') syncReminder(inp.checked);
+    fx.sound = S.settings.sound; save(); sfx('tap');
   });
   $('#goal').onchange = e => { S.settings.goal = +e.target.value; save(); screenMe(); };
-  $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); };
+  $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); syncReminder(); };
   if ($('#ics')) $('#ics').onclick = () => {
     download('sudoku-dojo-reminder.ics', H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today()), 'text/calendar');
     toast('Open the file to add it to your calendar');

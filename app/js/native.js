@@ -26,3 +26,19 @@ export async function share(text) {
   else if (navigator.share) await navigator.share({ text });
   else { await navigator.clipboard.writeText(text); return 'copied'; }
 }
+
+// Only the on-toggle tap may ask iOS for permission; all other messages just reschedule.
+export function reminder(settings, practisedToday, requestPermission = false) {
+  if (hasNativeBridge()) bridge().postMessage({
+    name: 'reminder', on: settings.reminderOn, time: settings.remindAt,
+    practisedToday, requestPermission,
+  });
+}
+
+export function onReminderStatus(callback) {
+  if (hasNativeBridge()) window.addEventListener('belts-reminder-status', e => callback(e.detail));
+}
+
+export function onNativeOpen(callback) {
+  if (hasNativeBridge()) window.addEventListener('belts-open', callback);
+}

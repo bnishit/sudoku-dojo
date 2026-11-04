@@ -14,7 +14,7 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
   - [x] Brief written; Xcode 27 selected (2026-11-04)
   - [x] Phase 1 shell (2026-11-04) · built by Codex, reviewed by Claude: builds, runs on iPhone 17 simulator from the bundle (no network allowed), save survives reinstall, light + dark OK, notch clear. Fonts fall back to system fonts in the shell for now. Cold launch ~4 s in a debug build.
   - [x] Phase 2 iPhone fixes (2026-11-04) · built by Codex, reviewed by Claude: backup opens the share sheet with the .json file (Save to Files offered; full save not tried), native haptics wired, sound follows the silent switch, calendar button hidden in the app. Haptics can't be felt in the simulator; check on a real phone.
-  - [ ] Phase 3 local reminders
+  - [x] Phase 3 daily reminder (2026-11-04) · built by Codex, reviewed by Claude: toggle asks permission only on tap, notification 'Today's puzzle is ready. Five minutes?' delivered on time in the simulator, no server. App-only copy fixed (phone, not browser). Not verified: tapping the notification opens the daily puzzle (simulator won't open from lock screen; code path reviewed); real-phone check needed.
   - [ ] Phase 4 store prep (no submission)
 
 ---

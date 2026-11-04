@@ -3,7 +3,8 @@ import WebKit
 import UIKit
 
 struct BeltsWebView: UIViewRepresentable {
-    func makeCoordinator() -> Navigation { Navigation() }
+    let reminders: ReminderNotifications
+    func makeCoordinator() -> Navigation { Navigation(reminders: reminders) }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -26,6 +27,8 @@ struct BeltsWebView: UIViewRepresentable {
         webView.backgroundColor = background
         webView.scrollView.backgroundColor = background
         webView.underPageBackgroundColor = background
+        reminders.webView = webView
+        reminders.ready = false
         webView.load(URLRequest(url: URL(string: "belts://app/index.html#/learn")!))
         return webView
     }
@@ -37,6 +40,14 @@ struct BeltsWebView: UIViewRepresentable {
     }
 
     final class Navigation: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        let reminders: ReminderNotifications
+        init(reminders: ReminderNotifications) { self.reminders = reminders }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            reminders.ready = true
+            reminders.openDailyIfNeeded()
+        }
+
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
             guard message.name == "belts", message.frameInfo.isMainFrame,
@@ -45,6 +56,8 @@ struct BeltsWebView: UIViewRepresentable {
                   let body = message.body as? [String: Any],
                   let name = body["name"] as? String else { return }
             switch name {
+            case "reminder":
+                reminders.update(body)
             case "haptic":
                 guard let ms = body["ms"] as? Double, ms > 0 else { return }
                 // Current calls: 12 ms = light, 40 ms = medium. Longer pulses = success.

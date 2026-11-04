@@ -1,5 +1,7 @@
 // npm test — checks the engine against every bank position and the habit logic.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import * as E from '../app/js/engine.js';
 import * as H from '../app/js/habit.js';
 import * as C from '../app/js/coach.js';
@@ -7,6 +9,26 @@ import { BANK } from '../app/data/bank.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log('✓', name); };
+
+ok('reminder defaults off and old saves migrate without losing progress or time', () => {
+  // Run the actual storage functions without booting the UI.
+  const source = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const storage = source.slice(source.indexOf('const fresh ='), source.indexOf('function save()'));
+  const { fresh, load } = runInNewContext(`${storage}; ({ fresh, load })`, {
+    localStorage: { getItem: () => null }, KEY: 'sudoku-dojo-v1',
+  });
+  assert.equal(fresh().settings.reminderOn, false);
+  const old = { xp: 42, days: ['2026-11-04'], settings: { remindAt: '19:30', sound: false } };
+  const migrated = load(JSON.stringify(old));
+  assert.equal(migrated.settings.reminderOn, false);
+  assert.equal(migrated.settings.remindAt, '19:30');
+  assert.equal(migrated.settings.sound, false);
+  assert.equal(migrated.xp, 42);
+  assert.equal(migrated.days[0], old.days[0]);
+  old.settings.reminderOn = true;
+  assert.equal(load(JSON.stringify(old)).settings.reminderOn, true);
+  assert.equal(load('{broken').settings.reminderOn, false);
+});
 
 ok('coach classifies the first 20 placing steps on every Gentle puzzle at least as easily', () => {
   for (const puzzle of BANK.tiers.gentle) {
