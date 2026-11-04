@@ -15,21 +15,25 @@ _Nothing right now. Pick the top item from Remaining, move it here, and go._
 ---
 
 ## 📋 Remaining (not started)
-- [ ] Scanning-routine lesson + drill ("check near-full areas → scan one digit → follow up after each placement") 🔬 teaching · M
 - [ ] Faded worked examples inside lessons (watch one → finish one → solo) 🔬 teaching · M
 - [ ] "Pattern or impostor?" drill: spot the near-miss that is *not* a valid pattern 🔬 teaching · M
-- [ ] Untimed Rush warm-up with persistent feedback 🔬 novice · S
 - [ ] Belt mastery = delayed independent use on fresh positions, not lesson completion 🔬 teaching · M
 - [ ] New techniques: Hidden Triple, Pointing Triple label, Skyscraper, Two-String Kite, XYZ-Wing, W-Wing, Simple Colouring 🔬 teaching · L
 - [ ] Snyder / box-corner notation lesson, kept visually distinct from full notes 🔬 teaching · M
 - [ ] Difficulty rating that uses total work + bottlenecks, not just hardest technique 🔬 teaching · L
-- [ ] Export / import progress (local storage can be wiped) 🔬 habit · S
 - [ ] Real push reminders (needs a push sender/backend) 🔬 habit · L
 - [ ] Custom domain instead of `sudoku-dojo-eight.vercel.app` · S
 
 ---
 
 ## ✅ Done
+
+### Release 4 — "Find moves faster" (2026-11-04)
+- [x] Scanning Routine lesson (White Belt, lesson 5): nearly full areas → one digit → follow up, coached on a real puzzle; help fades after 3 placements 🔬 teaching · M
+- [x] Scanning drill in Practice: 12 placements, no timer, any provable digit accepted 🔬 teaching · M
+- [x] Untimed Rush warm-up: same moves, no clock, hints on, explanations stay until Continue 🔬 novice · S
+- [x] Back up / restore progress as a file (Me → Back up your progress) 🔬 habit · S
+- [x] `npm test`: scanning coach never runs dry on Gentle/Easy and every digit is true; backup round-trip
 
 ### Release 3 — "Daily practice" (2026-11-04)
 - [x] Mystery move: find any valid next move, technique not named; reveal which one it was 🔬 teaching · M

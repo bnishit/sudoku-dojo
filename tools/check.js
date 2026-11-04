@@ -43,6 +43,22 @@ ok('naked triple hint does not ask for identical notes', () => {
   assert.doesNotMatch(s.hint, /same three notes/);
 });
 
+ok('scanning routine: always has a next single on easy puzzles, every digit true, follow-ups really touch the last placement', () => {
+  for (const t of ['gentle', 'easy']) for (const p of BANK.tiers[t]) {
+    const st = E.newState(E.parse(p.p)), sol = E.parse(p.s);
+    let last = -1;
+    while (st.grid.includes(0)) {
+      const plan = E.scanPlan(st, last);
+      assert.ok(plan, `${p.id}: routine ran dry`);
+      const { cell, digit } = plan.step.place[0];
+      assert.equal(sol[cell], digit, `${p.id}: wrong digit`);
+      if (plan.mode === 'follow') assert.ok(plan.step.units.some(u => plan.units.includes(u)) || plan.step.digit === st.grid[last]);
+      if (plan.mode === 'area') assert.ok(plan.gaps <= 3);
+      E.applyStep(st, plan.step); last = cell;
+    }
+  }
+});
+
 ok('6×6 generator: unique and logic-solvable', () => {
   for (let i = 0; i < 40; i++) {
     const { puzzle, solution } = E.generate6(i % 2 ? 'quick' : 'tricky');
@@ -93,6 +109,16 @@ ok('calendar reminder is a valid daily event', () => {
   assert.match(ics, /DTSTART:20261110T083000/);
   assert.match(ics, /RRULE:FREQ=DAILY/);
   assert.ok(ics.startsWith('BEGIN:VCALENDAR') && ics.endsWith('END:VCALENDAR'));
+});
+
+ok('backup file: round-trips a save and rejects other files', () => {
+  const save = { xp: 120, days: ['2026-11-03', '2026-11-04'], lessons: { fullHouse: { done: true, stars: 3 } }, settings: { goal: 4 } };
+  const b = H.readBackup(H.backupText(save, '2026-11-04'));
+  assert.deepEqual(b.data, save);
+  assert.equal(b.saved, '2026-11-04');
+  assert.equal(H.readBackup('not json'), null);
+  assert.equal(H.readBackup(JSON.stringify(save)), null, 'raw save without the wrapper');
+  assert.equal(H.readBackup(JSON.stringify({ app: 'sudoku-dojo', data: { xp: 'lots' } })), null);
 });
 
 console.log(`\n${n} checks passed`);

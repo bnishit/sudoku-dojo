@@ -444,6 +444,30 @@ export function findStep(st, techs = TECH_ORDER) {
   return null;
 }
 
+// The scanning routine: which single a fast solver would look for next.
+// follow: the last placement just forced something in its row, column or box (or blocked its digit nearby)
+// area: a nearly full row, column or box · digit: one digit across the boxes · cell: a crowded cell
+// quiet: there was a last placement but nothing near it became forced.
+export function scanPlan(st, last = -1) {
+  const G = geoOf(st.grid.length);
+  const singles = [...PLACING].flatMap(t => FINDERS[t](st, G, false));
+  if (!singles.length) return null;
+  const plan = (mode, step, extra) => ({ mode, step, singles, quiet: last >= 0 && mode !== 'follow', ...extra });
+  if (last >= 0) {
+    const mine = G.CELL_UNITS[last];
+    const near = singles.find(s => s.units.some(u => mine.includes(u)))
+      || singles.find(s => s.digit === st.grid[last] && s.cells.some(c => c.cell === last && c.role === 'blocker'));
+    if (near) return plan('follow', near, { units: mine });
+  }
+  const gaps = u => G.UNITS[u].filter(i => !st.grid[i]).length;
+  const byArea = singles.filter(s => s.tech !== 'nakedSingle').sort((a, b) => gaps(a.units[0]) - gaps(b.units[0]))[0];
+  if (byArea && gaps(byArea.units[0]) <= 3) return plan('area', byArea, { unit: byArea.units[0], gaps: gaps(byArea.units[0]) });
+  const count = d => st.grid.filter(v => v === d).length;
+  const byDigit = singles.filter(s => s.tech.startsWith('hiddenSingle')).sort((a, b) => count(b.digit) - count(a.digit))[0];
+  if (byDigit) return plan('digit', byDigit, { digit: byDigit.digit });
+  return plan('cell', singles[0]);
+}
+
 // Solve like a human. Returns the steps used, or solved:false if the techniques run out.
 export function logicSolve(grid) {
   const st = newState(grid), steps = [];

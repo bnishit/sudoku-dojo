@@ -15,9 +15,9 @@ const fresh = () => ({
   settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
 });
 let S = load();
-function load() {
+function load(raw = localStorage.getItem(KEY)) {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || '{}'), f = fresh();
+    const d = JSON.parse(raw || '{}'), f = fresh();
     const s = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
     // migrate release-1 saves
     if (d.streak?.last && !d.days) s.days = [d.streak.last];
@@ -158,7 +158,7 @@ function route() {
   document.querySelectorAll('.overlay').forEach(o => o.remove());
   const [, name = 'learn', arg] = location.hash.split('/');
   window.scrollTo(0, 0);
-  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, daily: screenDaily, me: screenMe }[name] || screenLearn)(arg);
+  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, scan: screenScan, daily: screenDaily, me: screenMe }[name] || screenLearn)(arg);
 }
 window.addEventListener('hashchange', route);
 const go = h => { if (location.hash === h) route(); else location.hash = h; };
@@ -220,11 +220,11 @@ function screenLearn() {
 function screenLesson(tech) {
   const L = LESSONS[tech];
   if (!L) return go('#/learn');
-  const belt = beltForTech(tech), isNotes = L.kind === 'notes';
-  const bank = BANK.lessons[isNotes ? 'pointing' : tech], placing = E.PLACING.has(tech);
+  const belt = beltForTech(tech), isNotes = L.kind === 'notes', isScan = L.kind === 'scan';
+  const bank = BANK.lessons[isNotes ? 'pointing' : isScan ? 'fullHouse' : tech], placing = E.PLACING.has(tech);
   const practice = shuffle(bank.slice(1)).slice(0, 3), results = [];
   let phase = 'intro', beat = 0, pi = 0;
-  const steps = isNotes ? ['intro', 'notes'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
+  const steps = isNotes ? ['intro', 'notes'] : isScan ? ['intro', 'scan'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
 
   const draw = () => {
     clearTimers(); active = null;
@@ -249,11 +249,14 @@ function screenLesson(tech) {
           <h3>What to look for</h3>
           <ul class="look">${L.lookFor.map(x => `<li>${md(x)}</li>`).join('')}</ul>
           <p class="muted small"><strong>R4C7</strong> means row 4, column 7. Boxes are numbered like a phone keypad ${keypadMap}</p>
-          <button class="btn primary wide" id="next">${isNotes ? "Let's write some notes →" : 'Show me on a real puzzle →'}</button>
+          <button class="btn primary wide" id="next">${isNotes ? "Let's write some notes →" : isScan ? 'Try the routine →' : 'Show me on a real puzzle →'}</button>
         </div>`;
-      $('#next').onclick = () => { phase = isNotes ? 'notes' : 'watch'; draw(); };
+      $('#next').onclick = () => { phase = isNotes ? 'notes' : isScan ? 'scan' : 'watch'; draw(); };
     } else if (phase === 'notes') {
       notesExercise(root, bank[0], r => { results.push(r); phase = 'done'; finish(); draw(); });
+    } else if (phase === 'scan') {
+      root.innerHTML = `<p class="task-head">Place <strong>8 digits</strong> using the routine. No timer.</p><div id="task"></div>`;
+      scanDrill($('#task'), pick(BANK.tiers.gentle), 8, r => { results.push(r); phase = 'done'; finish(); draw(); });
     } else if (phase === 'watch') {
       const st = posState(bank[0]);
       const step = E.findAll(st, tech)[0];
@@ -293,7 +296,7 @@ function screenLesson(tech) {
           <p class="stars huge">${stars(st.stars)}</p>
           <p>${st.lastSolo ? '<span class="solo">Solved on your own 🏅</span>' : '<span class="muted">Done with a little help. That is how learning works. Replay any time to try it solo.</span>'}</p>
           <div class="row gap center">
-            ${isNotes ? '' : `<a class="btn ghost" href="#/gym/${tech}">Practice more</a>`}
+            ${isNotes ? '' : `<a class="btn ghost" href="${isScan ? '#/scan' : `#/gym/${tech}`}">Practice more</a>`}
             ${nl ? `<a class="btn primary" href="#/lesson/${nl}">Next: ${LESSONS[nl].title}</a>` : `<a class="btn primary" href="#/play">Play a puzzle</a>`}
           </div>
         </div>`;
@@ -308,7 +311,7 @@ function screenLesson(tech) {
     const solo = results.every(r => !r.hints && !r.mistakes);
     const prev = S.lessons[tech];
     S.lessons[tech] = { done: true, stars: Math.max(prev?.stars || 0, score), solo: !!(prev?.solo || solo), lastSolo: solo };
-    if (!isNotes) S.reviews[tech] = H.review(S.reviews[tech], solo, today());
+    if (!L.kind) S.reviews[tech] = H.review(S.reviews[tech], solo, today());
     award(prev?.done ? 15 : 50, 'lesson');
     sfx('win'); confetti();
     const nb = beltsEarned();
@@ -376,6 +379,105 @@ function notesExercise(root, pos, onDone) {
   };
   const list = a => (a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a.at(-1));
   render(); ask();
+}
+
+// ================= SCANNING ROUTINE: place digits in the order a fast solver looks =================
+// Any provable digit is accepted; the coach just says where the routine would look next.
+// Help fades: the first few prompts name the exact row or digit, later ones only name the step.
+function scanDrill(root, puz, goal, onDone) {
+  const st = E.newState(E.parse(puz.p)), sol = E.parse(puz.s), givens = st.grid.map(Boolean), G = E.G9;
+  let sel = -1, spot = 0, last = -1, placed = 0, mistakes = 0, hints = 0, hintLv = 0, plan, shown = null, level = 0, errors = new Set();
+  root.innerHTML = `
+    <div class="play-layout">
+      <div class="board-wrap">${boardFrame('sb', 9, true)}</div>
+      <div class="side">
+        <ol class="routine" id="routine"><li data-m="area">Nearly full</li><li data-m="digit">One digit</li><li data-m="follow">Follow up</li></ol>
+        <div class="coach"><span class="owl">🦉</span><div class="bubble" id="say"></div></div>
+        ${numpad(9, 'Tap a cell, then its digit. Tap a digit first to light up every copy.')}
+        <div class="row gap tools-row"><button class="btn ghost grow" id="hint">💡 Hint</button></div>
+      </div>
+    </div>`;
+  const board = new Board($('#sb', root), i => { sel = i; spot = st.grid[i] || spot; sfx('tap'); render(); });
+  const say = h => { $('#say', root).innerHTML = `<p class="beat">${placed} of ${goal} placed</p>${h}`; };
+  const render = () => board.render({ grid: st.grid, givens, notes: null, selected: sel, spot, step: shown, level, errors, peers: S.settings.peers });
+  const prompt = () => {
+    const s = plan.step, specific = placed < 3 || hintLv > 0, d = st.grid[last];
+    root.querySelectorAll('#routine li').forEach(li => li.classList.toggle('on', li.dataset.m === plan.mode || (plan.mode === 'cell' && li.dataset.m === 'digit')));
+    const back = plan.quiet ? `Nothing new near your ${d}. <strong>Back to step 1.</strong> ` : '';
+    if (plan.mode === 'follow') {
+      shown = { units: plan.units, cells: [], marks: [], place: [], elim: [], beams: [] }; level = 2;
+      return say(`<strong>Follow up.</strong> Your ${d} at <strong>${G.cellName(last)}</strong> changed the shaded row, column and box. ${specific ? `Something in there just became forced${s.digit === d ? `, maybe another ${d}` : ''}.` : 'Anything new in there?'}`);
+    }
+    shown = null; level = 0;
+    if (plan.mode === 'area') return say(`${back}<strong>Step 1 · Nearly full areas.</strong> ${specific ? `<strong>${cap(G.unitName(plan.unit))}</strong> has only ${plan.gaps} empty cell${plan.gaps > 1 ? 's' : ''}. Which digit fits?` : 'Find a row, column or box with just one or two gaps.'}`);
+    if (plan.mode === 'digit') return say(`${back}<strong>Step 2 · One digit at a time.</strong> ${specific ? `Try the <strong>${plan.digit}s</strong>: tap ${plan.digit} on the keypad to light them up, then find a box missing a ${plan.digit} with only one spot left.` : 'Pick the digit you see most. Light it up and check every box that is missing it.'}`);
+    say(`${back}<strong>Crowded cell.</strong> No quick scan works here. Find a cell whose row, column and box already hold eight different digits.`);
+  };
+  const next = () => {
+    hintLv = 0; errors = new Set();
+    plan = E.scanPlan(st, last);
+    if (!plan || placed >= goal) return onDone({ mistakes, hints, placed });
+    prompt(); render();
+  };
+  const wrong = (msg, cell) => { mistakes++; sfx('bad'); board.pulse(cell, 'shake'); say(`<span class="bad">Not quite.</span> ${md(msg)}`); };
+  const cap = s => s[0].toUpperCase() + s.slice(1);
+
+  function input(d) {
+    if (sel < 0 || st.grid[sel]) { spot = spot === d ? 0 : d; sfx('tap'); render(); return; }
+    const hit = plan.singles.find(s => s.place[0].cell === sel && s.place[0].digit === d);
+    if (hit) {
+      const followed = plan.mode === 'follow' && hit.units.some(u => plan.units.includes(u));
+      E.applyStep(st, hit); last = sel; placed++; spot = d; sel = -1;
+      sfx('place'); board.pulse(last, 'pop');
+      if (followed) toast('Follow-up spotted 👍');
+      return next();
+    }
+    const clash = G.PEERS[sel].find(p => st.grid[p] === d);
+    if (clash !== undefined) {
+      errors = new Set([clash]); render(); setTimeout(() => { errors = new Set(); render(); }, 900);
+      return wrong(`There's already a ${d} at **${G.cellName(clash)}**, in the same ${G.ROW[clash] === G.ROW[sel] ? 'row' : G.COL[clash] === G.COL[sel] ? 'column' : 'box'}.`, sel);
+    }
+    if (sol[sel] === d) { sfx('tap'); return say(`True, <strong>${d}</strong> goes there. But nothing proves it yet, so a real solver wouldn't place it. Look for a forced one.`); }
+    wrong(`Nothing forces **${d}** into **${G.cellName(sel)}** yet. That cell could still be ${E.digitsOf(st.cands[sel]).join(', ')}.`, sel);
+  }
+  $('#hint', root).onclick = () => {
+    hintLv = Math.min(3, hintLv + 1); hints++;
+    if (hintLv === 1) prompt();
+    else { shown = plan.step; level = hintLv; say(`<p class="beat">Hint ${hintLv} of 3</p>${md(hintLv === 2 ? plan.step.hint : plan.step.text)}${legend(plan.step, level)}`); }
+    render();
+  };
+  root.querySelectorAll('.key').forEach(k => k.onclick = () => input(+k.dataset.d));
+  active = {
+    key(e) {
+      if (/^[1-9]$/.test(e.key)) input(+e.key);
+      else if (e.key === 'h') $('#hint', root).click();
+      else { const m = moveSel(sel, e.key, 9); if (m !== null) { e.preventDefault(); sel = m; render(); } }
+    },
+  };
+  next();
+}
+
+function screenScan() {
+  let round = 0;
+  const draw = () => {
+    clearTimers(); active = null;
+    app.innerHTML = `
+      <header class="bar"><a class="icon-btn" href="#/gym" aria-label="Back">←</a><div class="bar-title">🔎 Scanning drill <small>no timer</small></div><a class="icon-btn" href="#/lesson/scan" aria-label="Re-read the lesson">📖</a></header>
+      <main class="page lesson"><div id="task"></div></main>`;
+    scanDrill($('#task'), pick(BANK.tiers[round % 2 ? 'easy' : 'gentle']), 12, r => {
+      clearTimers(); active = null; round++;
+      const solo = !r.hints && !r.mistakes;
+      award(solo ? 12 : 6, 'scanning');
+      sfx('win');
+      overlay(`<div class="center"><div class="big-ic">🔎</div><h1>${r.placed} placed</h1><p class="muted">${solo ? 'All on your own 🏅' : `${r.mistakes} slip${r.mistakes === 1 ? '' : 's'} · ${r.hints} hint${r.hints === 1 ? '' : 's'}`}</p>
+        <div class="row gap center"><button class="btn ghost" data-a="out">Done</button><button class="btn primary" data-a="again">Again</button></div></div>`,
+        (o, close) => {
+          o.querySelector('[data-a=out]').onclick = () => { close(); go('#/gym'); };
+          o.querySelector('[data-a=again]').onclick = () => { close(); draw(); };
+        });
+    });
+  };
+  draw();
 }
 
 // ================= TASK: find one move on a real position =================
@@ -561,8 +663,12 @@ function screenGym() {
       <div><p class="eyebrow">🧭 Mixed practice</p><h2>Mystery moves</h2><p>Find the next move without being told which technique. This is what real puzzles feel like.</p></div>
       <div class="rush-best"><small>Week</small><strong>${weekCount()}</strong></div>
     </a>
+    <a class="rush-card" href="#/scan" style="margin-top:10px;background:linear-gradient(135deg,#1F8A70,#3FA34D)">
+      <div><p class="eyebrow">🔎 Find moves faster</p><h2>Scanning drill</h2><p>Place 12 digits on a real puzzle with the 3-step routine. No timer.</p></div>
+      <div class="rush-best"><small>Steps</small><strong>3</strong></div>
+    </a>
     <a class="rush-card" href="#/rush" style="margin-top:10px">
-      <div><p class="eyebrow">⚡ Speed drill</p><h2>Technique Rush</h2><p>90 seconds. Best once a technique already feels easy.</p></div>
+      <div><p class="eyebrow">⚡ Speed drill</p><h2>Technique Rush</h2><p>90 seconds. Best once a technique already feels easy. Untimed warm-up included.</p></div>
       <div class="rush-best"><small>Best</small><strong>${S.rushBest}</strong></div>
     </a>
     <h2 class="sec-title">Practice one technique</h2>
@@ -624,8 +730,35 @@ function screenRush() {
         <p class="muted small">Using: ${techs.map(t => LESSONS[t].title).join(', ')}${pool.length ? '' : ' (finish lessons to add more)'}</p>
         <p class="muted">Best: <strong>${S.rushBest}</strong></p>
         <button class="btn primary wide" id="go">Start</button>
+        <button class="btn ghost wide" id="warm" style="margin-top:10px">🧘 Warm up first (no timer)</button>
+        <p class="muted small">Same moves, no clock. Hints are on and every answer is explained.</p>
       </div></main>`;
     $('#go').onclick = run;
+    $('#warm').onclick = warm;
+  };
+  // Untimed warm-up: hints on, explanations stay until you tap Continue.
+  const warm = () => {
+    let found = 0, solo = 0;
+    const next = () => {
+      clearTimers(); active = null;
+      const t = pick(techs);
+      app.innerHTML = `
+        <header class="bar"><a class="icon-btn" href="#/gym">✕</a><div class="bar-title">🧘 Warm-up <small>${found} found · ${solo} on your own</small></div><span></span></header>
+        <main class="page lesson"><p class="task-head">${LESSONS[t].icon} ${LESSONS[t].title}</p><div id="task"></div>
+        <div class="row gap center"><button class="btn link" id="skip">Skip →</button><button class="btn link" id="go">⏱️ Start the timed run</button></div></main>`;
+      mountTask($('#task'), {
+        pos: pick(BANK.lessons[t]), tech: t, labeled: true,
+        onDone: r => {
+          found++; if (!r.hints && !r.mistakes) solo++;
+          S.reviews[r.tech] = H.review(S.reviews[r.tech], !r.hints && !r.mistakes, today());
+          award(r.hints ? 2 : 5);
+          next();
+        },
+      });
+      $('#skip').onclick = next;
+      $('#go').onclick = run;
+    };
+    next();
   };
   const run = () => {
     let left = 90, score = 0, combo = 0, over = false;
@@ -1005,7 +1138,12 @@ function screenMe() {
       ${toggle('quick', 'Quick fill', 'Pick a digit first, then tap cells')}
       ${toggle('sound', 'Sound & haptics', 'Little pops and chimes')}
     </div>
-    <p class="muted small">XP = points for practising. Progress is saved in this browser only.</p>
+    <h2 class="sec-title">Back up your progress</h2>
+    <div class="card" style="padding:16px">
+      <p class="muted small" style="margin:0 0 8px">Progress lives in this browser only. Clearing site data or switching phones wipes it. Save a backup file now and then, and open it here to bring everything back.</p>
+      <div class="row gap"><button class="btn primary sm" id="export">Save backup file</button><label class="btn ghost sm" for="import">Restore from file</label><input type="file" id="import" accept=".json,application/json" hidden></div>
+    </div>
+    <p class="muted small">XP = points for practising.</p>
     <button class="btn link danger" id="reset">Reset all progress</button>`);
   app.querySelectorAll('.toggle input').forEach(inp => inp.onchange = () => {
     S.settings[inp.dataset.k] = inp.checked; fx.sound = S.settings.sound; save(); sfx('tap');
@@ -1013,15 +1151,33 @@ function screenMe() {
   $('#goal').onchange = e => { S.settings.goal = +e.target.value; save(); screenMe(); };
   $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); };
   $('#ics').onclick = () => {
-    const ics = H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today());
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
-    a.download = 'sudoku-dojo-reminder.ics';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    download('sudoku-dojo-reminder.ics', H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today()), 'text/calendar');
     toast('Open the file to add it to your calendar');
   };
+  $('#export').onclick = () => {
+    download(`sudoku-dojo-backup-${today()}.json`, H.backupText(S, today()), 'application/json');
+    toast('Backup saved. Keep it somewhere safe.');
+  };
+  $('#import').onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const b = H.readBackup(await file.text());
+    e.target.value = '';
+    if (!b) return toast("That file isn't a Sudoku Dojo backup.");
+    const lessons = Object.values(b.data.lessons || {}).filter(l => l.done).length;
+    if (!confirm(`Restore the backup${b.saved ? ` from ${b.saved}` : ''}?\n${b.data.xp} XP · ${b.data.days.length} practice days · ${lessons} lessons\n\nThis replaces the progress on this device.`)) return;
+    S = load(JSON.stringify(b.data)); fx.sound = S.settings.sound; save();
+    toast('Progress restored ✓'); route();
+  };
   $('#reset').onclick = () => { if (confirm('Erase all XP, belts, times and saved games?')) { S = fresh(); save(); route(); } };
+}
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 // ================= boot =================

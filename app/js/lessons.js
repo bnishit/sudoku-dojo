@@ -1,6 +1,6 @@
 // Lesson content. Each technique id matches engine.js.
 export const BELTS = [
-  { id: 'white', name: 'White Belt', color: 'var(--belt-white)', blurb: 'See what is already there.', lessons: ['fullHouse', 'hiddenSingleBox', 'hiddenSingleLine', 'nakedSingle'] },
+  { id: 'white', name: 'White Belt', color: 'var(--belt-white)', blurb: 'See what is already there.', lessons: ['fullHouse', 'hiddenSingleBox', 'hiddenSingleLine', 'nakedSingle', 'scan'] },
   { id: 'yellow', name: 'Yellow Belt', color: 'var(--belt-yellow)', blurb: 'Notes start talking to each other.', lessons: ['notes', 'pointing', 'claiming'] },
   { id: 'green', name: 'Green Belt', color: 'var(--belt-green)', blurb: 'Groups that lock digits away.', lessons: ['nakedPair', 'hiddenPair', 'nakedTriple'] },
   { id: 'brown', name: 'Brown Belt', color: 'var(--belt-brown)', blurb: 'Patterns that span the whole board.', lessons: ['xWing', 'yWing'] },
@@ -35,6 +35,13 @@ export const LESSONS = {
     analogy: 'Like a key ring with nine keys: once eight of them don\'t fit the lock, the last one must.',
     lookFor: ['Cells where a row, column and box overlap and are busy', 'Count the different digits the cell can "see"', 'Eight seen means one left'],
     nudge: 'Look for a crowded cell. Which digits can it see?',
+  },
+  scan: {
+    title: 'Scanning Routine', icon: '🔎', tagline: 'Where to look next', kind: 'scan',
+    idea: ["Fast solvers don't stare at the board waiting for something to jump out. They run the same three checks, in order, again and again.", '**1. Nearly full areas.** A row, column or box with one or two gaps is the quickest win.', '**2. One digit at a time.** Pick a digit, light up every copy, and check each box still missing it.', '**3. Follow up.** After every digit you place, look at its row, column and box first. Your new digit often forces another one right next to it.'],
+    analogy: 'Like looking for lost keys: check the usual spots first, then search one room at a time, and when you move something, look right where you moved it.',
+    lookFor: ['Rows, columns or boxes with one or two gaps', 'The digit you see most: tap it to light up every copy', 'After each digit you place: its row, column and box'],
+    nudge: 'Run the routine: nearly full areas, then one digit, then follow up.',
   },
   notes: {
     title: 'Notes', icon: '✏️', tagline: 'Write down what could still fit', kind: 'notes',

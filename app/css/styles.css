@@ -356,3 +356,9 @@ strong { font-weight: 800; }
 .remind-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0 12px; }
 .check-row { display: flex; gap: 10px; }
 .summary-dots { display: flex; gap: 8px; justify-content: center; margin: 10px 0 16px; font-size: 1.4rem; }
+
+/* Scanning routine checklist */
+.routine { display: flex; gap: 6px; list-style: none; counter-reset: step; padding: 0; margin: 0 0 10px; }
+.routine li { flex: 1; counter-increment: step; font-size: .78rem; font-weight: 700; color: var(--muted); background: var(--surface); border-radius: 12px; padding: 7px 8px; text-align: center; box-shadow: var(--shadow); transition: background .2s, color .2s; }
+.routine li::before { content: counter(step) ' · '; }
+.routine li.on { background: var(--accent); color: #fff; }

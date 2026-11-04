@@ -70,6 +70,17 @@ export function pickDaily(learned, reviews, today, n = 5, rng = Math.random) {
   return out;
 }
 
+// Backup file: the whole save, wrapped so we can recognise it later.
+export const backupText = (save, today) => JSON.stringify({ app: 'sudoku-dojo', saved: today, data: save });
+// Returns the save inside a backup file, or null if the text is not one of ours.
+export function readBackup(text) {
+  try {
+    const b = JSON.parse(text);
+    const d = b?.app === 'sudoku-dojo' ? b.data : null;
+    return d && typeof d === 'object' && Array.isArray(d.days) && typeof d.xp === 'number' ? { data: d, saved: b.saved || '' } : null;
+  } catch { return null; }
+}
+
 // A daily calendar reminder the player can import. No server needed.
 export function reminderIcs(hhmm, url, today) {
   const [h, m] = hhmm.split(':');
