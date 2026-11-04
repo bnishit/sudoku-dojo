@@ -1,0 +1,12 @@
+{
+  "name": "sudoku-dojo",
+  "version": "1.0.0",
+  "description": "Learn Sudoku techniques step by step, from hidden singles to swordfish.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "bank": "node tools/build-bank.js",
+    "start": "python3 -m http.server 5178"
+  }
+}

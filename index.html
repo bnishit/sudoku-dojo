@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sudoku Dojo — learn Sudoku techniques step by step</title>
+  <meta name="description" content="A free app that teaches Sudoku techniques on real puzzles: hidden singles to swordfish, with a coach, belts, practice drills and a 6×6 mode. Works offline.">
+  <meta property="og:title" content="Sudoku Dojo">
+  <meta property="og:description" content="Learn 12 Sudoku techniques on real puzzles. Earn your black belt.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/assets/desktop-lesson.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#F5EFE3">
+  <link rel="icon" href="app/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="app/icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,700&family=Nunito:wght@600;700;800;900&display=swap">
+  <style>
+    :root {
+      --bg: #F5EFE3; --surface: #FFFDF8; --ink: #1F2235; --muted: #66626B; --line: #DDD3C2;
+      --accent: #E8613C; --accent-soft: #FBE1D5; --unit: #FFF1C4; --good: #2E9E6B;
+      --belt-white: #EFEAE0; --belt-yellow: #F2C230; --belt-green: #3BA36B; --belt-brown: #8A5A3B; --belt-black: #23242E;
+      --shadow: 0 2px 4px rgba(31,34,53,.05), 0 18px 44px rgba(31,34,53,.12);
+      --font: "Nunito", ui-rounded, system-ui, sans-serif; --display: "Fraunces", Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #14151B; --surface: #1D1F28; --ink: #EDE8DF; --muted: #A09BA6; --line: #353846;
+        --accent: #FF7A50; --accent-soft: #3D2620; --unit: #3A3320; --good: #4CC48B; --belt-white: #D9D2C4; --belt-black: #0A0A0E;
+        --shadow: 0 2px 4px rgba(0,0,0,.3), 0 18px 44px rgba(0,0,0,.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.6; overflow-x: hidden; }
+    a { color: inherit; }
+    img { max-width: 100%; display: block; }
+    h1, h2, h3 { font-family: var(--display); line-height: 1.08; letter-spacing: -.015em; margin: 0 0 .4em; }
+    h1 { font-size: clamp(2.5rem, 7vw, 4.6rem); }
+    h1 em, h2 em { color: var(--accent); }
+    h2 { font-size: clamp(1.9rem, 4.4vw, 3rem); }
+    h3 { font-size: 1.3rem; }
+    p { margin: 0 0 1em; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+    .muted { color: var(--muted); }
+    .eyebrow { text-transform: uppercase; letter-spacing: .1em; font-weight: 900; font-size: .78rem; color: var(--accent); margin-bottom: .8em; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 15px 26px; border-radius: 16px; font-weight: 900; text-decoration: none; transition: transform .15s, box-shadow .2s; }
+    .btn:active { transform: translateY(3px); }
+    .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 5px 0 color-mix(in srgb, var(--accent) 68%, #000), 0 12px 30px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .btn.primary:hover { transform: translateY(-2px); }
+    .btn.ghost { background: var(--surface); box-shadow: var(--shadow); }
+    a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+
+    nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); }
+    nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.3rem; text-decoration: none; }
+    .brand em { color: var(--accent); }
+    .brand img { width: 34px; height: 34px; border-radius: 10px; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .nav-links a.gh { font-weight: 800; text-decoration: none; padding: 10px 14px; color: var(--muted); }
+    .nav-links .btn { padding: 10px 18px; border-radius: 12px; }
+
+    .hero { padding: 48px 0 40px; }
+    .hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; }
+    .hero p.lead { font-size: 1.2rem; color: var(--muted); max-width: 32em; }
+    .cta { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 18px; }
+    .proof { display: flex; gap: 22px; flex-wrap: wrap; font-weight: 800; font-size: .95rem; color: var(--muted); }
+    .proof span::before { content: "✓ "; color: var(--good); }
+    .phones { position: relative; height: 600px; }
+    .phone { position: absolute; width: 270px; border-radius: 38px; padding: 9px; background: #1F2235; box-shadow: var(--shadow), 0 40px 80px rgba(31,34,53,.25); }
+    .phone img { border-radius: 30px; }
+    .phone.a { left: 4%; top: 30px; transform: rotate(-5deg); z-index: 2; animation: float 7s ease-in-out infinite; }
+    .phone.b { right: 2%; top: 0; transform: rotate(6deg); animation: float 7s ease-in-out -3.5s infinite; }
+    @keyframes float { 50% { translate: 0 -12px; } }
+    .grid-deco { position: absolute; inset: 40px 0 0 15%; background:
+      repeating-linear-gradient(90deg, var(--accent-soft) 0 2px, transparent 2px 46px),
+      repeating-linear-gradient(0deg, var(--accent-soft) 0 2px, transparent 2px 46px); border-radius: 40px; opacity: .8; mask: radial-gradient(circle at 50% 45%, #000 30%, transparent 70%); }
+
+    section { padding: 70px 0; }
+    .center { text-align: center; }
+    .center p { margin-inline: auto; max-width: 38em; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 40px; }
+    .step { background: var(--surface); border-radius: 26px; padding: 22px; box-shadow: var(--shadow); }
+    .step .num { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 900; margin-bottom: 12px; }
+    .step img { border-radius: 18px; margin-top: 16px; border: 1px solid var(--line); aspect-ratio: 390 / 600; object-fit: cover; object-position: top; }
+
+    .belts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 40px; }
+    .belt { background: var(--surface); border-radius: 22px; padding: 20px 18px; box-shadow: var(--shadow); border-top: 8px solid var(--b); }
+    .belt h3 { margin-bottom: .5em; }
+    .belt ul { list-style: none; margin: 0; padding: 0; font-weight: 700; font-size: .95rem; }
+    .belt li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+    .belt li:last-child { border: 0; }
+    .belt-ic { display: block; width: 64px; height: 14px; border-radius: 5px; background: var(--b); margin-bottom: 14px; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.2); position: relative; }
+    .belt-ic::after { content: ""; position: absolute; left: 50%; top: -4px; width: 14px; height: 22px; translate: -50% 0; background: var(--b); filter: brightness(.86); border-radius: 4px; }
+
+    .feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; padding: 40px 0; }
+    .feature-row.flip .shot { order: 2; }
+    .shot { display: flex; justify-content: center; gap: 18px; }
+    .shot .phone { position: relative; width: 250px; transform: none; animation: none; }
+    .shot .phone + .phone { margin-top: 60px; }
+    .feature-row ul { padding-left: 1.2em; }
+    .feature-row li { margin: .4em 0; }
+    .feature-row li::marker { color: var(--accent); }
+    .tag { display: inline-block; background: var(--unit); padding: 3px 10px; border-radius: 99px; font-weight: 800; font-size: .85rem; margin: 0 4px 6px 0; }
+
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; }
+    .card { background: var(--surface); border-radius: 22px; padding: 24px; box-shadow: var(--shadow); }
+    .card .ic { font-size: 1.9rem; margin-bottom: 8px; }
+    .card p { margin: 0; color: var(--muted); }
+
+    .desk { margin-top: 40px; border-radius: 24px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--line); }
+
+    .install { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 30px; text-align: left; }
+    .install .card ol { margin: 8px 0 0; padding-left: 1.2em; }
+
+    .final { background: var(--ink); color: var(--bg); border-radius: 36px; padding: 64px 24px; text-align: center; margin: 30px 0 60px; position: relative; overflow: hidden; }
+    .final h2 { color: var(--bg); }
+    .final p { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+    footer { padding: 0 0 50px; color: var(--muted); font-size: .92rem; }
+    footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .phone { animation: none !important; } }
+
+    @media (max-width: 900px) {
+      .hero .wrap, .feature-row { grid-template-columns: 1fr; gap: 30px; }
+      .feature-row.flip .shot { order: 0; }
+      .phones { height: 470px; }
+      .phone { width: 210px; }
+      .phone.a { left: 6%; } .phone.b { right: 6%; }
+      .steps, .cards { grid-template-columns: 1fr; }
+      .belts { grid-template-columns: 1fr 1fr; }
+      .install { grid-template-columns: 1fr; }
+      .shot .phone { width: 46%; max-width: 230px; }
+      .nav-links a.gh { display: none; }
+    }
+    @media (max-width: 460px) {
+      .phones { height: 400px; }
+      .phone { width: 175px; border-radius: 28px; padding: 7px; }
+      .phone img { border-radius: 22px; }
+      .belts { grid-template-columns: 1fr; }
+      section { padding: 50px 0; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="#"><img src="app/icons/icon-192.png" alt="">Sudoku <em>Dojo</em></a>
+      <div class="nav-links">
+        <a class="gh" href="https://github.com/bnishit/sudoku-dojo">GitHub</a>
+        <a class="btn primary" href="app/">Open the app</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Free · No sign-up · Works offline</p>
+        <h1>Stop guessing. <em>See</em> the move.</h1>
+        <p class="lead">You know the rules. Sudoku Dojo teaches you the techniques: 12 of them, from Hidden Singles to Swordfish. You learn each one on real puzzles, with a coach who shows you <strong>why</strong> every move works.</p>
+        <div class="cta">
+          <a class="btn primary" href="app/">Start learning →</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <div class="proof"><span>12 techniques</span><span>360 practice positions</span><span>9×9 and 6×6</span></div>
+      </div>
+      <div class="phones" aria-hidden="true">
+        <div class="grid-deco"></div>
+        <div class="phone b"><img src="assets/practice-xwing.png" alt=""></div>
+        <div class="phone a"><img src="assets/lesson-step3.png" alt=""></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="how">
+    <div class="wrap center reveal">
+      <p class="eyebrow">How a lesson works</p>
+      <h2>Three minutes. One new <em>superpower</em>.</h2>
+      <p class="muted">Every lesson uses a real position from a real puzzle, picked so the technique is the move that unlocks it.</p>
+    </div>
+    <div class="wrap steps">
+      <div class="step reveal"><div class="num">1</div><h3>Get the idea</h3><p class="muted">A short explanation, one everyday comparison, and a checklist of what to look for.</p><img src="assets/lesson-step2.png" alt="Lesson step: the coach highlights box 2 and the 4s that block it" loading="lazy"></div>
+      <div class="step reveal"><div class="num">2</div><h3>Watch it happen</h3><p class="muted">The coach owl walks through the board in three beats: where to look, what blocks what, and the answer.</p><img src="assets/lesson-step3.png" alt="Lesson step 3: the answer cell glows green with an explanation" loading="lazy"></div>
+      <div class="step reveal"><div class="num">3</div><h3>Your turn</h3><p class="muted">Find it yourself on three new puzzles. Wrong tap? It tells you exactly why. Stuck? Ask for a hint.</p><img src="assets/practice-xwing.png" alt="Practice: X-Wing found, candidates crossed out" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap center reveal">
+      <p class="eyebrow">Your path</p>
+      <h2>Earn your <em>black belt</em>.</h2>
+      <p class="muted">Nothing is locked. Already know your singles? Jump straight to X-Wings.</p>
+    </div>
+    <div class="wrap belts">
+      <div class="belt reveal" style="--b:var(--belt-white)"><span class="belt-ic"></span><h3>White</h3><ul><li>Full House</li><li>Hidden Single · Box</li><li>Hidden Single · Line</li><li>Naked Single</li></ul></div>
+      <div class="belt reveal" style="--b:var(--belt-yellow)"><span class="belt-ic"></span><h3>Yellow</h3><ul><li>Pointing Pair</li><li>Box-Line Reduction</li></ul></div>
+      <div class="belt reveal" style="--b:var(--belt-green)"><span class="belt-ic"></span><h3>Green</h3><ul><li>Naked Pair</li><li>Hidden Pair</li><li>Naked Triple</li></ul></div>
+      <div class="belt reveal" style="--b:var(--belt-brown)"><span class="belt-ic"></span><h3>Brown</h3><ul><li>X-Wing</li><li>Y-Wing</li></ul></div>
+      <div class="belt reveal" style="--b:var(--belt-black)"><span class="belt-ic"></span><h3>Black</h3><ul><li>Swordfish</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="feature-row reveal">
+        <div class="shot"><div class="phone"><img src="assets/game-hint.png" alt="A hint highlights the region to look at" loading="lazy"></div><div class="phone"><img src="assets/practice-ywing-hint.png" alt="Y-Wing hint with pivot and pincers" loading="lazy"></div></div>
+        <div>
+          <p class="eyebrow">Hints that teach</p>
+          <h2>A coach, not a cheat sheet.</h2>
+          <p class="muted">Most apps just fill in a cell. Here a hint comes in three levels, so you learn something every time:</p>
+          <ul>
+            <li><strong>Level 1:</strong> names the technique. "Try a Naked Pair."</li>
+            <li><strong>Level 2:</strong> lights up where to look.</li>
+            <li><strong>Level 3:</strong> shows the full move and why it works, then applies it for you.</li>
+          </ul>
+          <p class="muted">It also catches your mistakes first: a wrong digit, or a note that rubbed out the right answer.</p>
+        </div>
+      </div>
+      <div class="feature-row flip reveal">
+        <div class="shot"><div class="phone"><img src="assets/rush.png" alt="Technique Rush timer and score" loading="lazy"></div><div class="phone"><img src="assets/mini-6x6.png" alt="A 6x6 Mini Sudoku with Quick fill" loading="lazy"></div></div>
+        <div>
+          <p class="eyebrow">Get faster</p>
+          <h2>Train your eye, not just your brain.</h2>
+          <p><span class="tag">⚡ Technique Rush</span><span class="tag">🎯 Practice any technique</span><span class="tag">🧩 Mini 6×6</span><span class="tag">🔒 Quick fill</span></p>
+          <ul>
+            <li><strong>Rush:</strong> 90 seconds to spot as many techniques as you can. Each find adds 3 seconds.</li>
+            <li><strong>Practice:</strong> 30 real positions for every technique. Keep going until it's automatic.</li>
+            <li><strong>Mini 6×6:</strong> a full game in a few minutes. A great warm-up.</li>
+            <li><strong>Quick fill:</strong> pick a digit once, then tap cell after cell.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap center reveal">
+      <p class="eyebrow">The little things</p>
+      <h2>Made to feel <em>good</em>.</h2>
+    </div>
+    <div class="wrap cards">
+      <div class="card reveal"><div class="ic">🔦</div><h3>Smart highlights</h3><p>Tap a number and every copy lights up. Tap a cell and its row, column and box glow.</p></div>
+      <div class="card reveal"><div class="ic">🎉</div><h3>Pops and chimes</h3><p>Satisfying sounds, a ripple when you finish a row or box, and confetti when you win.</p></div>
+      <div class="card reveal"><div class="ic">📈</div><h3>Your progress, kept</h3><p>Streaks, XP, best times per level and recent games, saved right on your device.</p></div>
+      <div class="card reveal"><div class="ic">✈️</div><h3>Works offline</h3><p>Install it on your phone's home screen and play on a plane.</p></div>
+      <div class="card reveal"><div class="ic">🌙</div><h3>Light and dark</h3><p>Follows your phone's theme automatically. Easy on the eyes at night.</p></div>
+      <div class="card reveal"><div class="ic">✅</div><h3>Every puzzle checked</h3><p>Each puzzle has exactly one solution and can be solved by logic alone. No guessing, ever.</p></div>
+    </div>
+    <div class="wrap reveal"><img class="desk" src="assets/desktop-lesson.png" alt="Sudoku Dojo on a laptop: a Pointing Pair lesson" loading="lazy"></div>
+  </section>
+
+  <section id="install">
+    <div class="wrap center reveal">
+      <p class="eyebrow">Put it on your phone</p>
+      <h2>Install in 10 seconds.</h2>
+      <p class="muted">It's a web app, so there's no app store and nothing to pay for.</p>
+      <div class="install">
+        <div class="card"><h3>iPhone (Safari)</h3><ol><li>Open the app</li><li>Tap the Share button</li><li>Choose <strong>Add to Home Screen</strong></li></ol></div>
+        <div class="card"><h3>Android (Chrome)</h3><ol><li>Open the app</li><li>Tap the ⋮ menu</li><li>Choose <strong>Install app</strong></li></ol></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="final reveal">
+      <h2>Ready to stop guessing?</h2>
+      <p>Your first lesson takes about three minutes.</p>
+      <a class="btn primary" href="app/">Start learning →</a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <span>Sudoku Dojo · Free and open source (MIT)</span>
+      <a href="https://github.com/bnishit/sudoku-dojo">Source on GitHub</a>
+    </div>
+  </footer>
+
+  <script>
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  </script>
+</body>
+</html>
