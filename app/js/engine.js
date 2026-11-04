@@ -1,4 +1,4 @@
-// Sudoku Dojo engine: board geometry, solver, generator and human-style techniques.
+// Sudoku Belts engine: board geometry, solver, generator and human-style techniques.
 // Works for 9x9 (3x3 boxes) and 6x6 (2-row x 3-column boxes), in the browser and in Node.
 // Board size is read from the grid's length, so every function works on both.
 

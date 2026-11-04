@@ -1,6 +1,6 @@
-# AGENTS.md — working on Sudoku Dojo
+# AGENTS.md — working on Sudoku Belts
 
-Sudoku Dojo teaches Sudoku techniques on real puzzles. It is a static web app (PWA) with no build step and no runtime dependencies.
+Sudoku Belts teaches Sudoku techniques on real puzzles. It is a static web app (PWA) with no build step and no runtime dependencies.
 
 - Live: https://sudoku-dojo-eight.vercel.app (landing) · `/app/` (the app)
 - **Task board: [`TASKS.md`](TASKS.md). Read it first. Update it in the same commit as your work.**

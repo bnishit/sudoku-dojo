@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/icons/icon-192.png" width="88" alt="Sudoku Dojo icon">
+  <img src="app/icons/icon-192.png" width="88" alt="Sudoku Belts icon">
 </p>
 
-<h1 align="center">Sudoku Dojo</h1>
+<h1 align="center">Sudoku Belts</h1>
 
 <p align="center">
   <strong>Learn Sudoku techniques step by step: from Hidden Singles to Swordfish.</strong><br>
@@ -27,7 +27,7 @@
 
 Most Sudoku apps give you puzzles and a "reveal cell" button. That makes you faster at guessing, not better at seeing.
 
-Sudoku Dojo teaches the **techniques** strong players use, one at a time. You learn each one on real positions, picked so that technique is the move that unlocks the puzzle.
+Sudoku Belts teaches the **techniques** strong players use, one at a time. You learn each one on real positions, picked so that technique is the move that unlocks the puzzle.
 
 ## What's inside
 

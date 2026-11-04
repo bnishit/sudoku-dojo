@@ -1,5 +1,5 @@
 // Offline support: network first for the app (always fresh when online), cache as fallback.
-const CACHE = 'dojo-v3';
+const CACHE = 'dojo-v4';
 const SHELL = ['./', 'index.html', 'css/styles.css', 'js/app.js', 'js/engine.js', 'js/habit.js', 'js/board.js', 'js/lessons.js', 'js/fx.js', 'data/bank.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {

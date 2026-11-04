@@ -1,6 +1,6 @@
 {
-  "name": "Sudoku Dojo",
-  "short_name": "Dojo",
+  "name": "Sudoku Belts",
+  "short_name": "Sudoku Belts",
   "description": "Learn Sudoku techniques step by step, from hidden singles to swordfish.",
   "start_url": "./#/learn",
   "scope": "./",

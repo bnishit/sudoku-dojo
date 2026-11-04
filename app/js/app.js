@@ -9,7 +9,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const app = $('#app');
 
 // ================= storage (this browser only) =================
-const KEY = 'sudoku-dojo-v1';
+const KEY = 'sudoku-dojo-v1'; // old name kept on purpose: changing it would wipe every saved game
 const fresh = () => ({
   xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
   settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
@@ -140,7 +140,7 @@ function shell(tab, body) {
   const belt = beltsEarned().at(-1);
   app.innerHTML = `
     <header class="top">
-      <div class="brand"><span class="logo">${logoSvg()}</span><span>Sudoku <em>Dojo</em></span></div>
+      <div class="brand"><span class="logo">${logoSvg()}</span><span>Sudoku <em>Belts</em></span></div>
       <div class="chips">
         <span class="chip" title="Day streak (one rest day a week is allowed)">🔥 ${streakNow()}</span>
         <span class="chip" title="XP: points for practising">⭐ ${S.xp}</span>
@@ -629,7 +629,7 @@ function screenDaily() {
   const summary = () => {
     clearTimers(); active = null;
     const solo = results.filter(r => r.solo).length;
-    const text = `Sudoku Dojo 🥋 Today: ${results.length} move${results.length === 1 ? '' : 's'}, ${solo} on my own · 🔥 ${streakNow()}-day streak\n${results.map(r => (r.solo ? '🟩' : '🟨')).join('')}`;
+    const text = `Sudoku Belts 🥋 Today: ${results.length} move${results.length === 1 ? '' : 's'}, ${solo} on my own · 🔥 ${streakNow()}-day streak\n${results.map(r => (r.solo ? '🟩' : '🟨')).join('')}`;
     app.innerHTML = `
       <header class="bar"><a class="icon-btn" href="#/learn">✕</a><div class="bar-title">Today's practice</div><span></span></header>
       <main class="page lesson"><div class="intro center pop-in">
@@ -1163,7 +1163,7 @@ function screenMe() {
     if (!file) return;
     const b = H.readBackup(await file.text());
     e.target.value = '';
-    if (!b) return toast("That file isn't a Sudoku Dojo backup.");
+    if (!b) return toast("That file isn't a Sudoku Belts backup.");
     const lessons = Object.values(b.data.lessons || {}).filter(l => l.done).length;
     if (!confirm(`Restore the backup${b.saved ? ` from ${b.saved}` : ''}?\n${b.data.xp} XP · ${b.data.days.length} practice days · ${lessons} lessons\n\nThis replaces the progress on this device.`)) return;
     S = load(JSON.stringify(b.data)); fx.sound = S.settings.sound; save();

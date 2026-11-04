@@ -71,6 +71,7 @@ export function pickDaily(learned, reviews, today, n = 5, rng = Math.random) {
 }
 
 // Backup file: the whole save, wrapped so we can recognise it later.
+// 'sudoku-dojo' is the pre-rename id; keep it so older backup files still restore.
 export const backupText = (save, today) => JSON.stringify({ app: 'sudoku-dojo', saved: today, data: save });
 // Returns the save inside a backup file, or null if the text is not one of ours.
 export function readBackup(text) {
@@ -87,11 +88,11 @@ export function reminderIcs(hhmm, url, today) {
   const date = today.replace(/-/g, '');
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sudoku Dojo//EN', 'BEGIN:VEVENT',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sudoku Belts//EN', 'BEGIN:VEVENT',
     `UID:sudoku-dojo-daily-${date}@sudoku-dojo`, `DTSTAMP:${stamp}`,
     `DTSTART:${date}T${h}${m}00`, 'DURATION:PT5M', 'RRULE:FREQ=DAILY',
-    'SUMMARY:🥋 Sudoku Dojo: one move today', `DESCRIPTION:Your 1-minute practice: ${url}`, `URL:${url}`,
-    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Sudoku Dojo', 'TRIGGER:PT0M', 'END:VALARM',
+    'SUMMARY:🥋 Sudoku Belts: one move today', `DESCRIPTION:Your 1-minute practice: ${url}`, `URL:${url}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Sudoku Belts', 'TRIGGER:PT0M', 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR',
   ].join('\r\n');
 }
