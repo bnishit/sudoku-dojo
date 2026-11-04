@@ -1,6 +1,7 @@
 import * as E from './engine.js';
 import * as H from './habit.js';
 import * as C from './coach.js';
+import { hasNativeBridge, download, share as shareResult } from './native.js';
 import { BANK } from '../data/bank.js';
 import { LESSONS, BELTS, TIERS } from './lessons.js';
 import { Board, md } from './board.js';
@@ -650,10 +651,9 @@ function screenDaily() {
 }
 
 async function share(text) {
-  const full = `${text}\n${appUrl('../')}`;
+  const full = `${text}\n${hasNativeBridge() ? 'https://sudoku-dojo-eight.vercel.app/' : appUrl('../')}`;
   try {
-    if (navigator.share) await navigator.share({ text: full });
-    else { await navigator.clipboard.writeText(full); toast('Copied. Paste it anywhere.'); }
+    if (await shareResult(full) === 'copied') toast('Copied. Paste it anywhere.');
   } catch { /* cancelled */ }
 }
 
@@ -1185,7 +1185,7 @@ function screenMe() {
     <h2 class="sec-title">Daily reminder</h2>
     <div class="card" style="padding:16px">
       <p class="muted small" style="margin:0 0 8px">Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.</p>
-      <div class="remind-row"><input type="time" id="remindAt" value="${S.settings.remindAt}"><button class="btn primary sm" id="ics">Add to my calendar</button></div>
+      <div class="remind-row"><input type="time" id="remindAt" value="${S.settings.remindAt}">${hasNativeBridge() ? '' : '<button class="btn primary sm" id="ics">Add to my calendar</button>'}</div>
     </div>
     <h2 class="sec-title">Belts</h2>
     <div class="belts-row">${BELTS.map(b => `<div class="belt-tile ${b.lessons.every(lessonDone) ? 'got' : ''}"><span class="belt-big sm" style="--belt:${b.color}"></span><small>${b.name.replace(' Belt', '')}</small></div>`).join('')}</div>
@@ -1214,13 +1214,13 @@ function screenMe() {
   });
   $('#goal').onchange = e => { S.settings.goal = +e.target.value; save(); screenMe(); };
   $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); };
-  $('#ics').onclick = () => {
+  if ($('#ics')) $('#ics').onclick = () => {
     download('sudoku-dojo-reminder.ics', H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today()), 'text/calendar');
     toast('Open the file to add it to your calendar');
   };
   $('#export').onclick = () => {
     download(`sudoku-dojo-backup-${today()}.json`, H.backupText(S, today()), 'application/json');
-    toast('Backup saved. Keep it somewhere safe.');
+    toast(hasNativeBridge() ? 'Choose where to save your backup.' : 'Backup saved. Keep it somewhere safe.');
   };
   $('#import').onchange = async e => {
     const file = e.target.files[0];
@@ -1234,14 +1234,6 @@ function screenMe() {
     toast('Progress restored ✓'); route();
   };
   $('#reset').onclick = () => { if (confirm('Erase all XP, belts, times and saved games?')) { S = fresh(); save(); route(); } };
-}
-
-function download(name, text, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 // ================= boot =================

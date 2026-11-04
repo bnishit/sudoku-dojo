@@ -13,7 +13,8 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 - [ ] iPhone app v1, **fully free**: thin native shell around `app/`, offline, native haptics/backup/reminders. Brief: [`ios/BRIEF.md`](ios/BRIEF.md). Codex builds, Claude reviews each phase in the simulator 🔬 market research · L
   - [x] Brief written; Xcode 27 selected (2026-11-04)
   - [x] Phase 1 shell (2026-11-04) · built by Codex, reviewed by Claude: builds, runs on iPhone 17 simulator from the bundle (no network allowed), save survives reinstall, light + dark OK, notch clear. Fonts fall back to system fonts in the shell for now. Cold launch ~4 s in a debug build.
-  - [ ] Phases 2–3 (iPhone fixes, local reminders)
+  - [x] Phase 2 iPhone fixes (2026-11-04) · built by Codex, reviewed by Claude: backup opens the share sheet with the .json file (Save to Files offered; full save not tried), native haptics wired, sound follows the silent switch, calendar button hidden in the app. Haptics can't be felt in the simulator; check on a real phone.
+  - [ ] Phase 3 local reminders
   - [ ] Phase 4 store prep (no submission)
 
 ---
