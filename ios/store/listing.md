@@ -91,6 +91,10 @@ Other capability answers: unrestricted web access, user-generated content, messa
 
 ## App privacy
 
+Privacy Policy URL: https://sudoku-dojo-eight.vercel.app/privacy.html
+
+Support URL: https://sudoku-dojo-eight.vercel.app/support.html
+
 **Data Not Collected**. No tracking. No account or analytics. Progress and coach history stay on the device; backup and result sharing happen only when the player asks. An optional local reminder does not need a server.
 
 ## Screenshot captions
