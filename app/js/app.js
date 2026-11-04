@@ -1,5 +1,6 @@
 import * as E from './engine.js';
 import * as H from './habit.js';
+import * as C from './coach.js';
 import { BANK } from '../data/bank.js';
 import { LESSONS, BELTS, TIERS } from './lessons.js';
 import { Board, md } from './board.js';
@@ -11,7 +12,7 @@ const app = $('#app');
 // ================= storage (this browser only) =================
 const KEY = 'sudoku-dojo-v1'; // old name kept on purpose: changing it would wipe every saved game
 const fresh = () => ({
-  xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
+  coach: { stats: {}, moments: [] }, xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
   settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
 });
 let S = load();
@@ -19,6 +20,7 @@ function load(raw = localStorage.getItem(KEY)) {
   try {
     const d = JSON.parse(raw || '{}'), f = fresh();
     const s = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
+    s.coach = { ...f.coach, ...(d.coach || {}) };
     // migrate release-1 saves
     if (d.streak?.last && !d.days) s.days = [d.streak.last];
     delete s.streak;
@@ -158,7 +160,7 @@ function route() {
   document.querySelectorAll('.overlay').forEach(o => o.remove());
   const [, name = 'learn', arg] = location.hash.split('/');
   window.scrollTo(0, 0);
-  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, scan: screenScan, daily: screenDaily, me: screenMe }[name] || screenLearn)(arg);
+  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, scan: screenScan, daily: screenDaily, blind: screenBlind, me: screenMe }[name] || screenLearn)(arg);
 }
 window.addEventListener('hashchange', route);
 const go = h => { if (location.hash === h) route(); else location.hash = h; };
@@ -717,6 +719,35 @@ function screenGymTech(tech) {
   draw();
 }
 
+// ================= MISSED MOMENTS =================
+function screenBlind() {
+  const blind = C.blindSpot(S.coach.stats);
+  const moments = S.coach.moments.slice().sort((a, b) => Number(b.kind === blind?.kind) - Number(a.kind === blind?.kind));
+  let k = 0, lastTech = blind ? C.kindTech(blind.kind) : moments[0]?.tech || 'hiddenSingleLine';
+  const draw = () => {
+    clearTimers(); active = null;
+    app.innerHTML = `<header class="bar"><a class="icon-btn" href="#/me" aria-label="Back">←</a><div class="bar-title">🎯 Your missed moments</div><span></span></header>
+      <main class="page lesson">${moments[k] ? `<p class="task-head">A move you missed · <strong>${k + 1} of ${moments.length}</strong></p>` : ''}<div id="task"></div></main>`;
+    const m = moments[k];
+    if (!m) {
+      $('#task').innerHTML = `<div class="intro center pop-in"><div class="big-ic">✅</div><h1>All caught up</h1><p class="muted">No missed moves left to replay. Play a puzzle and your coach will save the next ones.</p><div class="row gap center"><a class="btn ghost" href="#/gym/${lastTech}">Practice ${LESSONS[lastTech].title}</a><a class="btn primary" href="#/play">Play a puzzle</a></div></div>`;
+      return;
+    }
+    lastTech = m.tech;
+    mountTask($('#task'), {
+      pos: { g: m.g, x: [], s: m.s }, tech: m.tech, labeled: true,
+      onDone: r => {
+        S.coach.stats = C.record(S.coach.stats, m.kind, r.hints ? 'hint' : 'found', 0);
+        S.coach.moments = S.coach.moments.filter(v => v !== m);
+        S.reviews[m.tech] = H.review(S.reviews[m.tech], !r.hints && !r.mistakes, today());
+        award(r.hints ? 2 : 5);
+        k++; draw();
+      },
+    });
+  };
+  draw();
+}
+
 // ================= RUSH =================
 function screenRush() {
   const pool = E.TECH_ORDER.filter(lessonDone);
@@ -881,6 +912,17 @@ function screenGame() {
   const g = S.game;
   if (!g) return go('#/play');
   const sol = E.parse(g.s), n = Math.sqrt(g.grid.length), G = E.geoOf(g.grid.length);
+  const coaching = n === 9;
+  g.lastAt ??= g.time;
+  const resetStall = () => { g.lastAt = g.time; g.coachStalled = false; };
+  const coachEvent = (kind, outcome, secs = 0, tech = C.kindTech(kind)) => {
+    S.coach.stats = C.record(S.coach.stats, kind, outcome, secs);
+    if (outcome !== 'found') {
+      // Replays use basic notes, so only save positions that still prove this move.
+      if (E.findAll(E.newState(g.grid), tech).some(step => C.stepKind(step) === kind)) S.coach.moments = C.addMoment(S.coach.moments,
+        { g: E.stringify(g.grid), s: g.s, tech, kind, date: Date.now() });
+    }
+  };
   let sel = -1, spot = 0, notesMode = false, lock = 0, hintStep = null, hintLv = 0, hintCands = null;
   const tierXp = (TIERS.find(t => t.id === g.tier)?.xp) ?? (g.tier === 'mini-quick' ? 8 : 15);
 
@@ -947,7 +989,7 @@ function screenGame() {
     sel = i; spot = g.grid[i] || 0;
     sfx('tap'); render();
   }
-  function apply(i, d, asNote = notesMode) {
+  function apply(i, d, asNote = notesMode, helped = false) {
     if (g.givens[i]) { spot = g.grid[i]; render(); return; }
     if (asNote) {
       if (g.grid[i]) return;
@@ -955,6 +997,13 @@ function screenGame() {
     } else {
       if (g.grid[i] === d) { render(); return; }
       snapshot();
+      if (d === sol[i]) {
+        if (coaching && !helped) {
+          const kind = C.classify(g.grid, i, d);
+          if (kind) coachEvent(kind, 'found', g.time - g.lastAt);
+        }
+        resetStall();
+      }
       g.grid[i] = d; g.notes[i] = 0;
       for (const p of G.PEERS[i]) g.notes[p] &= ~E.bit(d);
       if (d !== sol[i]) {
@@ -1011,9 +1060,10 @@ function screenGame() {
     if (!step) {
       const i = g.grid.findIndex(v => !v);
       say(`I'm stuck too! Here's a free one: <strong>${G.cellName(i)}</strong> is <strong>${sol[i]}</strong>.`, `<button class="btn primary sm" id="free">Place it</button>`);
-      $('#free').onclick = () => apply(i, sol[i], false);
+      $('#free').onclick = () => apply(i, sol[i], false, true);
       return;
     }
+    if (coaching && step.place.length) coachEvent(C.stepKind(step), 'hint', 0, step.tech);
     hintStep = step; hintCands = cands; hintLv = 1; g.hints++; save(); showHint();
   }
   function showHint() {
@@ -1027,6 +1077,7 @@ function screenGame() {
     $('#dismiss') && ($('#dismiss').onclick = () => { hush(); render(); });
     $('#applyh') && ($('#applyh').onclick = () => {
       const s = hintStep, c = hintCands;
+      if (s.place.length) resetStall();
       snapshot();
       for (const { cell, digit } of s.place) { g.grid[cell] = digit; g.notes[cell] = 0; for (const p of G.PEERS[cell]) g.notes[p] &= ~E.bit(digit); }
       for (const { cell, digit } of s.elim) { if (!g.notes[cell]) g.notes[cell] = c[cell]; g.notes[cell] &= ~E.bit(digit); }
@@ -1037,6 +1088,7 @@ function screenGame() {
     render();
   }
   function win() {
+    const blind = coaching ? C.blindSpot(S.coach.stats) : null;
     g.done = true; clearTimers(); active = null;
     const first = S.best[g.tier] == null || g.time < S.best[g.tier];
     if (first) S.best[g.tier] = g.time;
@@ -1057,8 +1109,10 @@ function screenGame() {
           <div><small>Mistakes</small><strong>${g.mistakes}</strong></div>
           <div><small>Hints</small><strong>${g.hints}</strong></div>
         </div>
+        ${blind ? `<button class="continue" data-a="blind" style="margin:0 0 14px;text-align:left"><span>🎯</span><span><strong>Blind spot: ${C.KIND_NAMES[blind.kind]}</strong><small>Replay the moves you missed</small></span></button>` : ''}
         <div class="row gap center"><button class="btn ghost" data-a="home">Menu</button><button class="btn primary" data-a="again">Another one</button></div>
       </div>`, (o, close) => {
+      o.querySelector('[data-a=blind]')?.addEventListener('click', () => { close(); go('#/blind'); });
       o.querySelector('[data-a=home]').onclick = () => { close(); go('#/play'); };
       o.querySelector('[data-a=again]').onclick = () => { close(); go('#/play'); setTimeout(() => app.querySelector(`.tier[data-tier="${g.tier}"]`)?.click(), 50); };
     }), 900);
@@ -1070,7 +1124,7 @@ function screenGame() {
   $('#quick').onclick = () => { S.settings.quick = !S.settings.quick; lock = 0; save(); sfx('tap'); render(); toast(S.settings.quick ? '⚡ Quick fill on: pick a digit, then tap cells' : 'Quick fill off'); };
   $('#restart').onclick = () => {
     if (!confirm('Restart this puzzle from the beginning?')) return;
-    g.grid = E.parse(g.p); g.notes = Array(G.size).fill(0); g.hist = []; g.time = 0; g.mistakes = 0; hush(); save(); render();
+    g.grid = E.parse(g.p); g.notes = Array(G.size).fill(0); g.hist = []; g.time = 0; g.mistakes = 0; resetStall(); hush(); save(); render();
   };
   active = {
     key(e) {
@@ -1091,7 +1145,12 @@ function screenGame() {
   };
   timers.push(setInterval(() => {
     if (document.hidden || g.done || document.querySelector('.overlay')) return;
-    g.time++; $('#clock') && ($('#clock').textContent = fmt(g.time));
+    g.time++;
+    if (coaching && !g.coachStalled && g.time - g.lastAt >= 45 && g.grid.every((v, i) => !v || v === sol[i])) {
+      const move = C.available(g.grid)[0];
+      if (move) { coachEvent(move.kind, 'stuck'); g.coachStalled = true; save(); }
+    }
+    $('#clock') && ($('#clock').textContent = fmt(g.time));
     if (g.time % 5 === 0) save();
   }, 1000));
   render();
@@ -1099,6 +1158,7 @@ function screenGame() {
 
 // ================= ME =================
 function screenMe() {
+  const blind = C.blindSpot(S.coach.stats);
   const allTiers = [...TIERS, { id: 'mini-quick', name: 'Mini · Quick' }, { id: 'mini-tricky', name: 'Mini · Tricky' }];
   const wins = Object.values(S.wins).reduce((a, b) => a + b, 0);
   const row = (k, v) => `<div class="kv"><span>${k}</span><strong>${v}</strong></div>`;
@@ -1117,6 +1177,10 @@ function screenMe() {
       <p class="muted small">Your streak allows one rest day a week. Best streak: ${S.bestStreak} · ${S.days.length} practice days in total.</p>
       <div class="goal-row"><span><strong>Weekly goal</strong></span>
         <select id="goal">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${n === S.settings.goal ? 'selected' : ''}>${n} day${n > 1 ? 's' : ''} a week</option>`).join('')}</select></div>
+    </div>
+    <h2 class="sec-title">Your blind spot</h2>
+    <div class="card" style="padding:16px">
+      ${blind ? `<p class="eyebrow">🎯 Work on this next</p><h3 style="margin:2px 0 6px">${C.KIND_NAMES[blind.kind]}</h3><p class="muted small" style="margin:0 0 12px">${blind.why}</p><a class="btn primary" href="#/blind">Replay the moves you missed</a>` : '<p class="muted small" style="margin:0">Play a few puzzles and your coach will spot the moves you tend to miss.</p>'}
     </div>
     <h2 class="sec-title">Daily reminder</h2>
     <div class="card" style="padding:16px">

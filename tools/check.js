@@ -2,10 +2,84 @@
 import assert from 'node:assert/strict';
 import * as E from '../app/js/engine.js';
 import * as H from '../app/js/habit.js';
+import * as C from '../app/js/coach.js';
 import { BANK } from '../app/data/bank.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log('✓', name); };
+
+ok('coach classifies the first 20 placing steps on every Gentle puzzle at least as easily', () => {
+  for (const puzzle of BANK.tiers.gentle) {
+    const grid = E.parse(puzzle.p), st = E.newState(grid);
+    let placements = 0;
+    for (const step of E.logicSolve(grid).steps) {
+      if (step.place.length) {
+        for (const { cell, digit } of step.place) {
+          const kind = C.classify(st.grid, cell, digit);
+          assert.ok(kind, puzzle.id);
+          assert.ok(E.TECH_ORDER.indexOf(C.kindTech(kind)) <= E.TECH_ORDER.indexOf(step.tech));
+        }
+        placements++;
+      }
+      E.applyStep(st, step);
+      if (placements >= 20) break;
+    }
+  }
+});
+
+ok('coach splits hidden singles by row and column', () => {
+  const seen = new Set();
+  for (const pos of BANK.lessons.hiddenSingleLine) {
+    const st = E.newState(E.parse(pos.g));
+    for (const k of pos.x) st.cands[(k / 10) | 0] &= ~E.bit(k % 10);
+    for (const step of E.findAll(st, 'hiddenSingleLine')) {
+      const kind = E.G9.isRow(step.units[0]) ? 'hiddenSingleRow' : 'hiddenSingleCol';
+      assert.equal(C.stepKind(step), kind);
+      assert.equal(C.kindTech(kind), step.tech);
+      seen.add(kind);
+    }
+  }
+  assert.equal(seen.size, 2);
+});
+
+ok('coach needs enough evidence, chooses missed columns, and preserves input stats', () => {
+  let stats = {};
+  for (let i = 0; i < 5; i++) stats = C.record(stats, 'hiddenSingleCol', i < 3 ? 'stuck' : 'found', 41);
+  assert.equal(C.blindSpot(stats), null);
+  for (let i = 0; i < 7; i++) stats = C.record(stats, 'hiddenSingleRow', 'found', 9);
+  const blind = C.blindSpot(stats);
+  assert.equal(blind.kind, 'hiddenSingleCol');
+  assert.match(blind.why, /41s.*only 9s in rows.*help on 3 of 5/);
+  const drill = C.record(stats, 'hiddenSingleCol', 'found', 0);
+  assert.equal(drill.hiddenSingleCol.secs, 82);
+  assert.equal(drill.hiddenSingleCol.timed, 2);
+  assert.equal(stats.hiddenSingleCol.found, 2);
+  assert.equal(drill.hiddenSingleCol.found, 3);
+});
+
+ok('coach stays quiet for even results and spots slow finds without misses', () => {
+  let stats = {};
+  for (let i = 0; i < 12; i++) stats = C.record(stats, 'fullHouse', 'found', 9);
+  assert.equal(C.blindSpot(stats), null);
+  for (let i = 0; i < 4; i++) stats = C.record(stats, 'hiddenSingleCol', 'found', 60);
+  assert.equal(C.blindSpot(stats).kind, 'hiddenSingleCol');
+  assert.equal(C.classify(Array(36).fill(0), 0, 1), null);
+  assert.equal(C.classify(Array(81).fill(0), 0, 1), null);
+});
+
+ok('coach keeps only the last 20 exact moments without mutating the list', () => {
+  let moments = [];
+  const p = BANK.tiers.gentle[0];
+  for (let date = 0; date < 25; date++) {
+    const before = moments.slice();
+    const next = C.addMoment(moments, { g: p.p, s: p.s, tech: 'fullHouse', kind: 'fullHouse', date });
+    assert.deepEqual(moments, before);
+    moments = next;
+  }
+  assert.equal(moments.length, 20);
+  assert.equal(moments[0].date, 5);
+  assert.equal(moments[19].g, p.p);
+});
 
 ok('every lesson position: its technique exists, is the easiest, and every step is true', () => {
   for (const [tech, list] of Object.entries(BANK.lessons)) for (const pos of list) {

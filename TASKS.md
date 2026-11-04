@@ -28,6 +28,14 @@ _Nothing right now. Pick the top item from Remaining, move it here, and go._
 
 ## ✅ Done
 
+### Release 5 — "Your coach" (2026-11-04) · built by Codex, reviewed + UI-checked by Claude
+- [x] Rename to **Sudoku Belts** (the "Sudoku Dojo" name is taken on both stores); save key + backup id unchanged so no progress is lost
+- [x] Blind-spot coach: while you play 9×9 puzzles (daily included), it notes what you find fast, slow, or get stuck on (45 s with a move available) or need a hint for; hidden singles split into row / column / box 🔬 market research · L
+- [x] Me → "Your blind spot" card + win-screen tile, shown only once there is enough evidence (12+ moves, 4+ of that kind)
+- [x] "Your missed moments": replays the exact positions where you got stuck (last 20 kept)
+- [x] Market research report → `research/market-research.md`
+- [x] `npm test`: coach classification, row/column split, blind-spot rules, moment cap
+
 ### Release 4 — "Find moves faster" (2026-11-04)
 - [x] Scanning Routine lesson (White Belt, lesson 5): nearly full areas → one digit → follow up, coached on a real puzzle; help fades after 3 placements 🔬 teaching · M
 - [x] Scanning drill in Practice: 12 placements, no timer, any provable digit accepted 🔬 teaching · M
