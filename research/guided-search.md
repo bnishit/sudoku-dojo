@@ -1,6 +1,8 @@
 # Guided search: learn where to look
 
-**Teach a search that can come up empty, then fade it based on skill.**
+**Current design: [six-rung beginner ladder](guided-search-noob-walkthrough.md).**
+
+The earlier proposal below is historical. The ladder replaces its all-at-once controls, opening dead end, worked demo and separate stage model. The engine proof rules and free-hint policy still apply.
 Nishit felt lost on his iPhone even with hints. Novices in Hidden Single lessons, Play and Scanning face this gap; affected-player count is unknown. Without a change, they may follow answers without learning to find moves. Only design and engine support are done; Claude review comes before UI work.
 
 ## A real example

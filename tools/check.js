@@ -5,7 +5,9 @@ import { runInNewContext } from 'node:vm';
 import * as E from '../app/js/engine.js';
 import * as H from '../app/js/habit.js';
 import * as C from '../app/js/coach.js';
+import { freshSearch, loadSearch, recordSearch, ladderReady, followUpPrompt } from '../app/js/search.js';
 import { BANK } from '../app/data/bank.js';
+import { checkSearchInteractions } from './search-check.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log('✓', name); };
@@ -15,7 +17,7 @@ ok('reminder defaults off and old saves migrate without losing progress or time'
   const source = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
   const storage = source.slice(source.indexOf('const fresh ='), source.indexOf('function save()'));
   const { fresh, load } = runInNewContext(`${storage}; ({ fresh, load })`, {
-    localStorage: { getItem: () => null }, KEY: 'sudoku-dojo-v1',
+    freshSearch, loadSearch, localStorage: { getItem: () => null }, KEY: 'sudoku-dojo-v1',
   });
   assert.equal(fresh().settings.reminderOn, false);
   const old = { xp: 42, days: ['2026-11-04'], settings: { remindAt: '19:30', sound: false } };
@@ -23,11 +25,44 @@ ok('reminder defaults off and old saves migrate without losing progress or time'
   assert.equal(migrated.settings.reminderOn, false);
   assert.equal(migrated.settings.remindAt, '19:30');
   assert.equal(migrated.settings.sound, false);
+  assert.deepEqual(migrated.searchBox, freshSearch());
   assert.equal(migrated.xp, 42);
   assert.equal(migrated.days[0], old.days[0]);
   old.settings.reminderOn = true;
   assert.equal(load(JSON.stringify(old)).settings.reminderOn, true);
   assert.equal(load('{broken').settings.reminderOn, false);
+});
+
+ok('mounted ladder: all rungs, calm errors, isolated board and empty-cell regression', checkSearchInteractions);
+
+ok('search ladder: two distinct clean reps per rung, migration and later fading', () => {
+  assert.ok(BANK.lessons.hiddenSingleBox.slice(1).filter(p => ladderReady(E.parse(p.g))).length >= 12, 'enough distinct real positions for the complete ladder');
+  let p = freshSearch();
+  const record = (position, extra = {}) => { p = recordSearch(p, { position, clean: true, placed: true, day: '2026-11-04', ...extra }); };
+  for (let rung=1; rung<=6; rung++) {
+    record(`help${rung}`, {clean:false});
+    assert.equal(p.positions.length, 0);
+    record(`a${rung}`, {placed:rung!==1, completed:true});
+    record(`a${rung}`);
+    assert.equal(p.rung, rung);
+    record(`b${rung}`, {placed:rung!==1, completed:true});
+    assert.equal(p.rung, rung+1);
+  }
+  record('a7'); record('b7'); record('c7'); assert.equal(p.rung,8);
+  for(let i=0;i<4;i++) record(`start${i}`);
+  assert.equal(p.rung,8);
+  record('full', {fullPuzzle:true}); assert.equal(p.rung,9);
+  for(let i=0;i<10;i++) record(`solo${i}`);
+  assert.equal(p.checkedDay,null);
+  record('fresh puzzle',{fullPuzzle:true,day:'2026-11-05'});
+  assert.equal(p.checkedDay,'2026-11-05');
+  for(const [stage,rung] of [[0,1],[1,7],[2,8],[3,9]]) {
+    const migrated=loadSearch({stage,positions:['old'],solo:['kept']});
+    assert.equal(migrated.rung,rung); assert.ok(!('stage' in migrated));
+    assert.deepEqual(migrated.positions,[]); assert.deepEqual(migrated.solo,['kept']);
+  }
+  assert.equal(loadSearch({rung:99}).rung,1);
+  assert.deepEqual(loadSearch(null),freshSearch());
 });
 
 ok('coach classifies the first 20 placing steps on every Gentle puzzle at least as easily', () => {
@@ -201,6 +236,10 @@ ok('guided search: dead ends, present digits, 6×6, invalid requests and remote 
   for (let i = 0; i < 2; i++) E.applyStep(st, E.findStep(st));
   E.placeDigit(st, 4, 7);
   const last = 4, follow = E.searchFollowUps(st.grid, last);
+  assert.equal(followUpPrompt(st.grid, last), 'Your new 7 rules out cells. Check a box it reached.');
+  assert.match(followUpPrompt(E.parse(BANK.tiers.gentle[0].s), 0), /^No empty cells/);
+  const sparse = Array(81).fill(0); sparse[0] = 1;
+  assert.match(followUpPrompt(sparse, 0), /^That did not force another 1/);
   assert.ok(follow.some(s => !E.G9.CELL_UNITS[last].includes(s.unit)), 'new digit touches a remote house');
 });
 
