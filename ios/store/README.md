@@ -7,7 +7,7 @@ Local draft for iPhone v1, fully free. Pending Claude review. Nothing uploaded o
 - `icon-options/compare.html`: current icon + A/B/C, each at 1024, 180 and 60 CSS pixels, on light and dark. Optional rounded-corner preview; new PNGs are square, 1024×1024, RGB with no alpha. Nishit picks before anyone changes the Xcode icon.
 - `listing.md`: paste-ready fields with character counts, six captions, draft age-rating answers, and Data Not Collected.
 - `walkthrough.html`: real export previews and the exact code that handles supplied or missing captures.
-- `export/`: six numbered 1320×2868 PNGs, preview, and capture status. **Current exports are stale drafts. The 2026-11-04 rerun failed because the sandbox denied listening on 127.0.0.1:5197 (EPERM). Claude must rerun export using the six real captures, then review before upload.**
+- `export/`: six numbered 1320×2868 PNGs from real iPhone 17 Pro Max simulator captures, plus preview and status. **Approved by Nishit on 2026-11-04; ready to upload.** Re-exporting resets `uploadReady` to false.
 
 ## Regenerate exports
 
