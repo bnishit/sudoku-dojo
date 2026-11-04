@@ -1,0 +1,36 @@
+{
+  "uploadReady": false,
+  "note": "Claude must review all six captures and captions before upload.",
+  "captures": [
+    {
+      "src": "/captures/01.png",
+      "ready": false,
+      "status": "Supplied placeholder 01.png · replacement capture pending"
+    },
+    {
+      "src": "/captures/02.png",
+      "ready": false,
+      "status": "Supplied placeholder 02.png · replacement capture pending"
+    },
+    {
+      "src": null,
+      "ready": false,
+      "status": "Capture pending · 03.png"
+    },
+    {
+      "src": null,
+      "ready": false,
+      "status": "Capture pending · 04.png"
+    },
+    {
+      "src": null,
+      "ready": false,
+      "status": "Capture pending · 05.png"
+    },
+    {
+      "src": null,
+      "ready": false,
+      "status": "Capture pending · 06.png"
+    }
+  ]
+}
