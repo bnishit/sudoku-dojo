@@ -134,6 +134,76 @@ ok('hint text never claims placed digits do all the blocking when they do not', 
   }
 });
 
+ok('guided search: all 560 bank positions, every digit and house, have exact blockers and true forced spots', () => {
+  const positions = [...Object.values(BANK.lessons).flat(), ...Object.values(BANK.tiers).flat()];
+  assert.equal(positions.length, 560);
+  for (const p of positions) {
+    const grid = E.parse(p.g || p.p), sol = E.parse(p.s), snapshot = grid.slice(), G = E.G9;
+    const basic = E.basicCandidates(grid);
+    for (let digit = 1; digit <= 9; digit++) for (let unit = 0; unit < 27; unit++) {
+      const f = E.searchFacts(grid, digit, unit), cells = G.UNITS[unit];
+      assert.equal(f.present, cells.some(i => grid[i] === digit));
+      assert.deepEqual(f.filled, cells.filter(i => grid[i]));
+      assert.deepEqual(f.remaining, cells.filter(i => !grid[i] && E.has(basic[i], digit)));
+      const sources = grid.map((v, i) => v === digit && cells.some(c => !grid[c] && G.sees(i, c)) ? i : -1).filter(i => i >= 0);
+      assert.deepEqual(f.blockers.map(b => b.cell), sources);
+      for (const b of f.blockers) {
+        assert.equal(grid[b.cell], digit);
+        assert.deepEqual(b.cells, cells.filter(i => !grid[i] && G.sees(b.cell, i)));
+        assert.deepEqual(b.beams.map(b => b.unit), G.CELL_UNITS[b.cell].filter(u => cells.some(i => !grid[i] && G.UNITS[u].includes(i))));
+        for (const beam of b.beams) {
+          assert.ok(G.UNITS[beam.unit].includes(b.cell));
+          assert.deepEqual(beam.cells, cells.filter(i => !grid[i] && G.UNITS[beam.unit].includes(i)));
+        }
+        assert.deepEqual([...new Set(b.beams.flatMap(b => b.cells))].sort((a, b) => a - b), b.cells);
+      }
+      if (f.remaining.length === 1) assert.equal(sol[f.remaining[0]], digit);
+    }
+    const ranked = E.rankSearchStarts(grid);
+    assert.deepEqual(E.rankSearchStarts(grid), ranked, 'stable ranking');
+    assert.ok(ranked.every(s => !s.present && s.remaining.length));
+    if (ranked.some(s => s.remaining.length === 1)) assert.equal(ranked[0].remaining.length, 1);
+    for (const s of ranked) assert.equal(s.placed, grid.filter(v => v === s.digit).length);
+    assert.deepEqual(grid, snapshot, 'searches must not write to the grid');
+    // One legal placement per bank position; compare ALL houses to an independent before/after oracle.
+    const last = ranked.find(s => s.remaining.length === 1)?.remaining[0] ?? grid.indexOf(0);
+    if (last < 0) continue;
+    const after = grid.slice(), digit = sol[last]; after[last] = digit;
+    const next = E.basicCandidates(after), follow = E.searchFollowUps(after, last);
+    const expected = G.UNITS.map((cells, unit) => ({ unit,
+      before: cells.filter(i => E.has(basic[i], digit)), after: cells.filter(i => E.has(next[i], digit)),
+    })).filter(s => !G.UNITS[s.unit].some(i => after[i] === digit) && s.before.length > 1 && s.after.length === 1);
+    assert.deepEqual(follow.map(s => s.unit), expected.map(s => s.unit));
+    for (const f of follow) {
+      assert.equal(f.digit, digit);
+      assert.equal(sol[f.remaining[0]], digit);
+      assert.deepEqual(f.removed, G.UNITS[f.unit].filter(i => E.has(basic[i], digit) && !E.has(next[i], digit)));
+      assert.ok(f.removed.every(i => G.sees(last, i)));
+    }
+    assert.deepEqual(after, grid.map((v, i) => i === last ? digit : v));
+  }
+});
+
+ok('guided search: dead ends, present digits, 6×6, invalid requests and remote follow-ups', () => {
+  const empty = Array(36).fill(0);
+  assert.equal(E.searchFacts(empty, 6, 12).remaining.length, 6);
+  assert.deepEqual(E.searchFollowUps(empty, -1), []);
+  assert.deepEqual(E.searchFollowUps(empty, 0), []);
+  assert.throws(() => E.searchFacts(empty, 7, 12), RangeError);
+  assert.throws(() => E.searchFacts(empty, 1, 18), RangeError);
+  const sol = E.solve(empty, 1).solution, grid = sol.slice(); grid[0] = 0;
+  assert.deepEqual(E.searchFacts(grid, sol[0], 12).remaining, [0]);
+  assert.equal(E.searchFacts(sol, sol[0], 12).present, true);
+  assert.deepEqual(E.rankSearchStarts(sol), []);
+  assert.deepEqual(E.rankSearchStarts(empty, [12]).map(s => s.unit), Array(6).fill(12));
+  const p = BANK.tiers.gentle[0], st = E.newState(E.parse(p.p));
+  // gentle-1: after two preparatory moves, r1c5=7 newly forces box 8.
+  for (let i = 0; i < 2; i++) E.applyStep(st, E.findStep(st));
+  E.placeDigit(st, 4, 7);
+  const last = 4, follow = E.searchFollowUps(st.grid, last);
+  assert.ok(follow.some(s => !E.G9.CELL_UNITS[last].includes(s.unit)), 'new digit touches a remote house');
+});
+
 ok('naked triple hint does not ask for identical notes', () => {
   const s = E.findAll((() => { const pos = BANK.lessons.nakedTriple[0], g = E.parse(pos.g), c = E.basicCandidates(g); for (const k of pos.x) c[(k / 10) | 0] &= ~E.bit(k % 10); return { grid: g, cands: c }; })(), 'nakedTriple')[0];
   assert.doesNotMatch(s.hint, /same three notes/);

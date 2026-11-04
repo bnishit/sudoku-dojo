@@ -10,6 +10,8 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 
 ## 🚧 In progress
 
+- [ ] Guided search: teach how to FIND moves, not just what they are · design + engine done, pending Claude review; UI next. Design: [`research/guided-search.md`](research/guided-search.md) · M
+
 - [ ] iPhone app v1, **fully free**: thin native shell around `app/`, offline, native haptics/backup/reminders. Brief: [`ios/BRIEF.md`](ios/BRIEF.md). Codex builds, Claude reviews each phase in the simulator 🔬 market research · L
   - [x] Brief written; Xcode 27 selected (2026-11-04)
   - [x] Phase 1 shell (2026-11-04) · built by Codex, reviewed by Claude: builds, runs on iPhone 17 simulator from the bundle (no network allowed), save survives reinstall, light + dark OK, notch clear. Fonts fall back to system fonts in the shell for now. Cold launch ~4 s in a debug build.
