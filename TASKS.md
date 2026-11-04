@@ -10,7 +10,18 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 
 ## 🚧 In progress
 
-_Nothing right now. Pick the top item from Remaining, move it here, and go._
+- [ ] Guided search: six-rung beginner ladder for box lesson, Play hint and scanning; one saved progress model, two clean reps per rung · local redesign; Claude passed R1/R2 in the iPhone simulator. Six beginner gaps addressed locally (goal/action, no answer outline, top praise, once-only intro, board labels, scanning rules when used); Nishit confirmed it feels clear on his iPhone (2026-11-04). Claude passed R3–R6 through lesson completion and checked the Scanning Routine intro at 390×844. Five follow-up gaps addressed locally (2026-11-04): one-spot choices on R3/R4, clear R5 dead end, chip caption, first R6 cue, true scan copy + area highlight. `npm test`: 23 pass; `npm run bank`: 560 verified. Fresh light/dark browser review pending: browser access unavailable. No commit or release. Checks: 23 pass; bank 560 items; 390×844 light/dark. Review: [`output/beginner-search-walkthrough.html`](output/beginner-search-walkthrough.html). Walkthrough: [`research/guided-search-noob-walkthrough.md`](research/guided-search-noob-walkthrough.md). Checks (2026-11-04): `npm test` 21 checks; `npm run bank` 560 items; twelve-rep lesson and saved-rung Play/Scanning paths checked at 390×844, light/dark. Visual: [`output/guided-search-ladder-walkthrough.html`](output/guided-search-ladder-walkthrough.html). Original design: [`research/guided-search.md`](research/guided-search.md) · M
+  - Simulator empty-cell report investigated (2026-11-04): not reproduced. Mounted regression covers reported layout + exact bank position in lesson, Play hint and scanning modes. All three full browser paths pass at 390×844, light/dark; `npm test` (21 checks) + `npm run bank` (560 items) pass. Bank R4C7 is 5; R4C8 and R8C5 choose boxes correctly. Native simulator tap mismatch remains unconfirmed; no source fix, commit or release. Evidence: [`output/search-regression-review.html`](output/search-regression-review.html).
+
+- [ ] iPhone app v1, **fully free**: thin native shell around `app/`, offline, native haptics/backup/reminders. Brief: [`ios/BRIEF.md`](ios/BRIEF.md). Codex builds, Claude reviews each phase in the simulator 🔬 market research · L
+  - [x] Brief written; Xcode 27 selected (2026-11-04)
+  - [x] Phase 1 shell (2026-11-04) · built by Codex, reviewed by Claude: builds, runs on iPhone 17 simulator from the bundle (no network allowed), save survives reinstall, light + dark OK, notch clear. Fonts fall back to system fonts in the shell for now. Cold launch ~4 s in a debug build.
+  - [x] Phase 2 iPhone fixes (2026-11-04) · built by Codex, reviewed by Claude: backup opens the share sheet with the .json file (Save to Files offered; full save not tried), native haptics wired, sound follows the silent switch, calendar button hidden in the app. Haptics can't be felt in the simulator; check on a real phone.
+  - [x] Native JavaScript dialogs (2026-11-04) · built by Codex, checked by Claude: confirm() was silently No in the app (no daily/new game with a saved game, no restart/restore/erase). Now native iPhone dialogs; Cancel keeps the game, OK starts the daily (iPhone 17 Pro Max simulator). Restart/restore/erase use the same path, not tapped one by one.
+  - [x] Phase 3 daily reminder (2026-11-04) · built by Codex, reviewed by Claude: toggle asks permission only on tap, notification 'Today's puzzle is ready. Five minutes?' delivered on time in the simulator, no server. App-only copy fixed (phone, not browser). Not verified: tapping the notification opens the daily puzzle (simulator won't open from lock screen; code path reviewed); real-phone check needed.
+  - [ ] Phase 4 store prep · code done 2026-11-04 (Codex, reviewed by Claude): app icon = option C (grid + belt), picked by Nishit 2026-11-04, dark/light launch colour (no white flash, checked), privacy manifest = no tracking, no data collected, v1.0 (1), iPhone portrait. Still to do: 6 store screenshots; real-phone check of haptics + reminder tap. No submission.
+  - [ ] Public privacy and support pages (2026-11-04): local pages, landing footer links, and store listing URLs added. Static checks passed; 390×844 light/dark browser review blocked by unavailable browser host. Not committed or deployed.
+  - [x] Store pack (2026-11-04) · icon C, listing text, six real 1320×2868 screenshots from the iPhone 17 Pro Max simulator. Screenshots approved by Nishit 2026-11-04. Upload to App Store Connect is Nishit's step. See [`ios/store/README.md`](ios/store/README.md).
 
 ---
 
@@ -23,6 +34,7 @@ _Nothing right now. Pick the top item from Remaining, move it here, and go._
 - [ ] Difficulty rating that uses total work + bottlenecks, not just hardest technique 🔬 teaching · L
 - [ ] Real push reminders (needs a push sender/backend) 🔬 habit · L
 - [ ] Custom domain instead of `sudoku-dojo-eight.vercel.app` · S
+- [ ] iPhone paid unlock (after v1 is live and free). Decide free vs paid and the price first. Proposal: free = White + Yellow Belt, Gentle/Easy, daily, Mini 6×6; one purchase unlocks the rest; hints never paid; anchor Good Sudoku $4.99. Build: StoreKit 2 on device, no server, "Restore purchase" on Me 🔬 market research · M
 
 ---
 

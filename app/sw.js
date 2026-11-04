@@ -1,6 +1,6 @@
 // Offline support: network first for the app (always fresh when online), cache as fallback.
-const CACHE = 'dojo-v5';
-const SHELL = ['./', 'index.html', 'css/styles.css', 'js/app.js', 'js/engine.js', 'js/habit.js', 'js/coach.js', 'js/board.js', 'js/lessons.js', 'js/fx.js', 'data/bank.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
+const CACHE = 'dojo-v7';
+const SHELL = ['./', 'index.html', 'css/styles.css', 'js/app.js', 'js/engine.js', 'js/habit.js', 'js/coach.js', 'js/search.js', 'js/board.js', 'js/lessons.js', 'js/fx.js', 'js/native.js', 'data/bank.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

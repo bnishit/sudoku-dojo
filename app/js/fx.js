@@ -1,4 +1,7 @@
 // Sound, haptics and confetti. All optional and fail silently.
+import { haptic } from './native.js';
+export { haptic } from './native.js';
+
 let ctx = null;
 export const fx = { sound: true };
 
@@ -29,7 +32,6 @@ export function sfx(name) {
   if (name === 'bad') haptic(40);
   else if (name === 'good' || name === 'unit') haptic(12);
 }
-export function haptic(ms) { try { navigator.vibrate?.(ms); } catch { /* ignore */ } }
 
 export function confetti(power = 1) {
   const cv = document.getElementById('confetti');

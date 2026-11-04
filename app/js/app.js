@@ -1,6 +1,8 @@
 import * as E from './engine.js';
 import * as H from './habit.js';
 import * as C from './coach.js';
+import { freshSearch, loadSearch, mountSearch, boxes, ladderReady, followUpPrompt } from './search.js';
+import { hasNativeBridge, download, share as shareResult, reminder, onReminderStatus, onNativeOpen } from './native.js';
 import { BANK } from '../data/bank.js';
 import { LESSONS, BELTS, TIERS } from './lessons.js';
 import { Board, md } from './board.js';
@@ -12,14 +14,16 @@ const app = $('#app');
 // ================= storage (this browser only) =================
 const KEY = 'sudoku-dojo-v1'; // old name kept on purpose: changing it would wipe every saved game
 const fresh = () => ({
-  coach: { stats: {}, moments: [] }, xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
-  settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
+  searchBox: freshSearch(), coach: { stats: {}, moments: [] }, xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
+  settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, reminderOn: false, remindAt: '08:00' }, game: null, rushBest: 0,
 });
 let S = load();
 function load(raw = localStorage.getItem(KEY)) {
   try {
     const d = JSON.parse(raw || '{}'), f = fresh();
     const s = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
+    s.searchBox = loadSearch(d.searchBox);
+    s.settings.reminderOn = s.settings.reminderOn === true;
     s.coach = { ...f.coach, ...(d.coach || {}) };
     // migrate release-1 saves
     if (d.streak?.last && !d.days) s.days = [d.streak.last];
@@ -32,11 +36,23 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { 
 fx.sound = S.settings.sound;
 
 const today = () => H.dayKey();
+let reminderDenied = false;
+const syncReminder = (requestPermission = false) => reminder(S.settings, S.days.includes(today()), requestPermission);
+onNativeOpen(() => syncReminder());
+onReminderStatus(({ on, denied }) => {
+  S.settings.reminderOn = on; reminderDenied = denied; save();
+  const toggle = $('[data-k=reminderOn]');
+  if (toggle) toggle.checked = on;
+  const note = $('#reminderDenied');
+  if (note) note.hidden = !denied;
+});
 const streakNow = () => H.streak(S.days, today());
 // Any XP comes from real practice, so it also marks today as a practice day.
 function award(xp, why) {
   S.xp += xp;
+  const wasPractised = S.days.includes(today());
   S.days = H.addDay(S.days, today());
+  if (!wasPractised) syncReminder();
   S.bestStreak = Math.max(S.bestStreak, streakNow());
   save();
   toast(`+${xp} XP${why ? ' · ' + why : ''}`, 'xp');
@@ -155,9 +171,11 @@ function shell(tab, body) {
 const logoSvg = () => `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="var(--accent)"/><path d="M12 6v20M20 6v20M6 12h20M6 20h20" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/><circle cx="16" cy="16" r="3.2" fill="#fff"/></svg>`;
 
 function route() {
+  syncReminder();
+  app.inert = false;
   clearTimers();
   active = null;
-  document.querySelectorAll('.overlay').forEach(o => o.remove());
+  document.querySelectorAll('.overlay, .search-overlay').forEach(o => o.remove());
   const [, name = 'learn', arg] = location.hash.split('/');
   window.scrollTo(0, 0);
   ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, scan: screenScan, daily: screenDaily, blind: screenBlind, me: screenMe }[name] || screenLearn)(arg);
@@ -218,29 +236,51 @@ function screenLearn() {
     <p class="foot muted">Know some already? Jump into any lesson. Nothing is locked.</p>`);
 }
 
+// Searches use a separate board so exit restores notes and normal controls untouched.
+function openSearch(grid, options = {}) {
+  const host = document.createElement('div'); host.className = 'search-overlay';
+  host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', 'Search with me');
+  document.body.append(host); app.inert = true;
+  const previous = active; active = null;
+  const close = () => { host.remove(); app.inert = false; if (active === null) active = previous; };
+  const training = S.searchBox.rung === 1 || (S.searchBox.rung === 5 && !ladderReady(grid))
+    ? BANK.lessons.hiddenSingleBox.filter(p => !S.searchBox.positions.includes(p.g) && ladderReady(E.parse(p.g))) : [];
+  mountSearch(host, { grid: training.length ? E.parse(pick(training).g) : grid.slice(), progress: S.searchBox,
+    persist: p => { S.searchBox = p; save(); }, ...options,
+    fullPuzzle: !!options.fullPuzzle && !training.length,
+    onExit: () => { close(); options.onExit?.(); },
+    onSkip: () => { close(); options.onExit?.(); },
+    onRep: () => { close(); openSearch(grid, options); },
+    onPlace: move => { close(); if (training.length) return openSearch(grid, options); options.onPlace?.(move); },
+  });
+}
+
 // ================= LESSON =================
 function screenLesson(tech) {
   const L = LESSONS[tech];
   if (!L) return go('#/learn');
   const belt = beltForTech(tech), isNotes = L.kind === 'notes', isScan = L.kind === 'scan';
   const bank = BANK.lessons[isNotes ? 'pointing' : isScan ? 'fullHouse' : tech], placing = E.PLACING.has(tech);
-  const practice = shuffle(bank.slice(1)).slice(0, 3), results = [];
-  let phase = 'intro', beat = 0, pi = 0;
-  const steps = isNotes ? ['intro', 'notes'] : isScan ? ['intro', 'scan'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
+  const practice = shuffle(bank.slice(1).filter(p => tech !== 'hiddenSingleBox' || ladderReady(E.parse(p.g)))).slice(0, tech === 'hiddenSingleBox' ? bank.length : 3), results = [];
+  let phase = tech === 'hiddenSingleBox' && S.searchBox.introSeen ? 'practice' : isScan ? 'scan' : 'intro', beat = 0, pi = 0;
+  const steps = tech === 'hiddenSingleBox' ? ['r1','r2','r3','r4','r5','r6'] : isNotes ? ['intro', 'notes'] : isScan ? ['intro', 'scan'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
 
   const draw = () => {
     clearTimers(); active = null;
     const cur = phase === 'practice' ? 'p' + pi : phase;
-    const idx = phase === 'done' ? steps.length : steps.indexOf(cur);
+    const idx = phase === 'done' ? steps.length : tech === 'hiddenSingleBox' ? Math.min(5, S.searchBox.rung - 1) : steps.indexOf(cur);
     app.innerHTML = `
       <header class="bar">
-        <a class="icon-btn" href="#/learn" aria-label="Close">✕</a>
+        ${tech === 'hiddenSingleBox' && phase === 'practice' ? '<span></span>' : '<a class="icon-btn" href="#/learn" aria-label="Close">✕</a>'}
         <div class="progress">${steps.map((s, k) => `<i class="${k < idx ? 'full' : k === idx ? 'now' : ''}"></i>`).join('')}</div>
         <span class="belt-chip small" style="--belt:${belt.color}"></span>
       </header>
       <main class="page lesson" id="lp"></main>`;
     const root = $('#lp');
-    if (phase === 'intro') {
+    if (phase === 'intro' && tech === 'hiddenSingleBox') {
+      root.innerHTML = `<div class="intro pop-in"><h1>Every box needs each number 1 to 9 once.</h1><p>We'll find where a missing number goes, one small step at a time.</p><button class="btn primary wide" id="next">Start</button></div>`;
+      $('#next').onclick = () => { S.searchBox.introSeen = true; save(); phase = 'practice'; draw(); };
+    } else if (phase === 'intro') {
       root.innerHTML = `
         <div class="intro pop-in">
           <div class="big-ic">${L.icon}</div>
@@ -250,15 +290,15 @@ function screenLesson(tech) {
           ${L.analogy ? `<div class="analogy"><span>💡</span><p>${md(L.analogy)}</p></div>` : ''}
           <h3>What to look for</h3>
           <ul class="look">${L.lookFor.map(x => `<li>${md(x)}</li>`).join('')}</ul>
-          <p class="muted small"><strong>R4C7</strong> means row 4, column 7. Boxes are numbered like a phone keypad ${keypadMap}</p>
+          ${tech === 'hiddenSingleBox' ? '' : `<p class="muted small"><strong>R4C7</strong> means row 4, column 7. Boxes are numbered like a phone keypad ${keypadMap}</p>`}
           <button class="btn primary wide" id="next">${isNotes ? "Let's write some notes →" : isScan ? 'Try the routine →' : 'Show me on a real puzzle →'}</button>
         </div>`;
-      $('#next').onclick = () => { phase = isNotes ? 'notes' : isScan ? 'scan' : 'watch'; draw(); };
+      $('#next').onclick = () => { phase = isNotes ? 'notes' : isScan ? 'scan' : tech === 'hiddenSingleBox' ? 'practice' : 'watch'; draw(); };
     } else if (phase === 'notes') {
       notesExercise(root, bank[0], r => { results.push(r); phase = 'done'; finish(); draw(); });
     } else if (phase === 'scan') {
       root.innerHTML = `<p class="task-head">Place <strong>8 digits</strong> using the routine. No timer.</p><div id="task"></div>`;
-      scanDrill($('#task'), pick(BANK.tiers.gentle), 8, r => { results.push(r); phase = 'done'; finish(); draw(); });
+      scanDrill($('#task'), pick(BANK.tiers.gentle), 8, r => { results.push(r); phase = 'done'; finish(); draw(); }, true);
     } else if (phase === 'watch') {
       const st = posState(bank[0]);
       const step = E.findAll(st, tech)[0];
@@ -284,7 +324,16 @@ function screenLesson(tech) {
       $('#fwd').onclick = () => { if (beat < 2) { beat++; show(); } else { phase = 'practice'; draw(); } };
       show();
     } else if (phase === 'practice') {
-      root.innerHTML = `<p class="task-head">Your turn · <strong>${pi + 1} of 3</strong></p><div id="task"></div>`;
+      root.innerHTML = `${tech === 'hiddenSingleBox' ? '' : `<p class="task-head">Your turn · <strong>${pi + 1} of 3</strong></p>`}<div id="task"></div>`;
+      if (tech === 'hiddenSingleBox') {
+        mountSearch($('#task'), { grid: E.parse(practice[pi % practice.length].g), progress: S.searchBox,
+          persist: p => { S.searchBox = p; save(); },
+          onExit: () => go('#/learn'),
+          onRep: () => { pi++; draw(); },
+          onPlace: r => { results.push(r); pi++; if (S.searchBox.rung >= 7) { phase = 'done'; finish(); } draw(); },
+        });
+        return;
+      }
       mountTask($('#task'), {
         pos: practice[pi], tech, labeled: true,
         onDone: r => { results.push(r); pi++; phase = pi >= practice.length ? 'done' : 'practice'; if (phase === 'done') finish(); draw(); },
@@ -386,7 +435,8 @@ function notesExercise(root, pos, onDone) {
 // ================= SCANNING ROUTINE: place digits in the order a fast solver looks =================
 // Any provable digit is accepted; the coach just says where the routine would look next.
 // Help fades: the first few prompts name the exact row or digit, later ones only name the step.
-function scanDrill(root, puz, goal, onDone) {
+function scanDrill(root, puz, goal, onDone, teach = false) {
+  const taught = new Set();
   const st = E.newState(E.parse(puz.p)), sol = E.parse(puz.s), givens = st.grid.map(Boolean), G = E.G9;
   let sel = -1, spot = 0, last = -1, placed = 0, mistakes = 0, hints = 0, hintLv = 0, plan, shown = null, level = 0, errors = new Set();
   root.innerHTML = `
@@ -396,7 +446,7 @@ function scanDrill(root, puz, goal, onDone) {
         <ol class="routine" id="routine"><li data-m="area">Nearly full</li><li data-m="digit">One digit</li><li data-m="follow">Follow up</li></ol>
         <div class="coach"><span class="owl">🦉</span><div class="bubble" id="say"></div></div>
         ${numpad(9, 'Tap a cell, then its digit. Tap a digit first to light up every copy.')}
-        <div class="row gap tools-row"><button class="btn ghost grow" id="hint">💡 Hint</button></div>
+        <div class="row gap tools-row"><button class="btn ghost grow" id="hint">💡 Hint</button><button class="btn ghost hidden" id="guide">Search with me</button></div>
       </div>
     </div>`;
   const board = new Board($('#sb', root), i => { sel = i; spot = st.grid[i] || spot; sfx('tap'); render(); });
@@ -406,12 +456,12 @@ function scanDrill(root, puz, goal, onDone) {
     const s = plan.step, specific = placed < 3 || hintLv > 0, d = st.grid[last];
     root.querySelectorAll('#routine li').forEach(li => li.classList.toggle('on', li.dataset.m === plan.mode || (plan.mode === 'cell' && li.dataset.m === 'digit')));
     const back = plan.quiet ? `Nothing new near your ${d}. <strong>Back to step 1.</strong> ` : '';
-    if (plan.mode === 'follow') {
-      shown = { units: plan.units, cells: [], marks: [], place: [], elim: [], beams: [] }; level = 2;
-      return say(`<strong>Follow up.</strong> Your ${d} at <strong>${G.cellName(last)}</strong> changed the shaded row, column and box. ${specific ? `Something in there just became forced${s.digit === d ? `, maybe another ${d}` : ''}.` : 'Anything new in there?'}`);
-    }
     shown = null; level = 0;
-    if (plan.mode === 'area') return say(`${back}<strong>Step 1 · Nearly full areas.</strong> ${specific ? `<strong>${cap(G.unitName(plan.unit))}</strong> has only ${plan.gaps} empty cell${plan.gaps > 1 ? 's' : ''}. Which digit fits?` : 'Find a row, column or box with just one or two gaps.'}`);
+    if (last >= 0) return say(followUpPrompt(st.grid, last));
+    if (plan.mode === 'area') {
+      if (specific) { shown = { units: [plan.unit] }; level = 2; }
+      return say(`${back}<strong>Step 1 · Nearly full areas.</strong> ${specific ? `<strong>${cap(G.unitName(plan.unit))}</strong> has only ${plan.gaps} empty cell${plan.gaps > 1 ? 's' : ''}. Which digit fits?` : 'Find a row, column or box that is nearly full.'}`);
+    }
     if (plan.mode === 'digit') return say(`${back}<strong>Step 2 · One digit at a time.</strong> ${specific ? `Try the <strong>${plan.digit}s</strong>: tap ${plan.digit} on the keypad to light them up, then find a box missing a ${plan.digit} with only one spot left.` : 'Pick the digit you see most. Light it up and check every box that is missing it.'}`);
     say(`${back}<strong>Crowded cell.</strong> No quick scan works here. Find a cell whose row, column and box already hold eight different digits.`);
   };
@@ -420,6 +470,18 @@ function scanDrill(root, puz, goal, onDone) {
     plan = E.scanPlan(st, last);
     if (!plan || placed >= goal) return onDone({ mistakes, hints, placed });
     prompt(); render();
+    const resume = () => { if (last >= 0) { $('#guide', root).classList.remove('hidden'); teachRule('digit', guide); } };
+    teachRule(last >= 0 ? 'follow' : plan.mode, resume);
+  };
+  const teachRule = (rule, resume) => {
+    if (!teach || taught.has(rule) || !['area','digit','follow'].includes(rule)) return resume();
+    taught.add(rule);
+    const ruleIndex = {area: 0, digit: 1, follow: 2}[rule];
+    const layout = root.querySelector('.play-layout'), card = document.createElement('div');
+    layout.style.display = 'none'; card.className = 'intro pop-in';
+    card.innerHTML = `<h1>${LESSONS.scan.idea[ruleIndex]}</h1><p>${LESSONS.scan.analogy}</p><button class="btn primary wide">Start</button>`;
+    root.append(card);
+    card.querySelector('button').onclick = () => { card.remove(); layout.style.display = ''; resume(); };
   };
   const wrong = (msg, cell) => { mistakes++; sfx('bad'); board.pulse(cell, 'shake'); say(`<span class="bad">Not quite.</span> ${md(msg)}`); };
   const cap = s => s[0].toUpperCase() + s.slice(1);
@@ -442,8 +504,13 @@ function scanDrill(root, puz, goal, onDone) {
     if (sol[sel] === d) { sfx('tap'); return say(`True, <strong>${d}</strong> goes there. But nothing proves it yet, so a real solver wouldn't place it. Look for a forced one.`); }
     wrong(`Nothing forces **${d}** into **${G.cellName(sel)}** yet. That cell could still be ${E.digitsOf(st.cands[sel]).join(', ')}.`, sel);
   }
+  const guide = () => openSearch(st.grid, { digit: st.grid[last] || 0,
+    onPlace: r => { hints += r.hints; mistakes += r.mistakes; sel = r.cell; input(r.digit); },
+  });
+  $('#guide', root).onclick = guide;
   $('#hint', root).onclick = () => {
     hintLv = Math.min(3, hintLv + 1); hints++;
+    if (hintLv === 2 && last >= 0) return guide();
     if (hintLv === 1) prompt();
     else { shown = plan.step; level = hintLv; say(`<p class="beat">Hint ${hintLv} of 3</p>${md(hintLv === 2 ? plan.step.hint : plan.step.text)}${legend(plan.step, level)}`); }
     render();
@@ -650,10 +717,9 @@ function screenDaily() {
 }
 
 async function share(text) {
-  const full = `${text}\n${appUrl('../')}`;
+  const full = `${text}\n${hasNativeBridge() ? 'https://sudoku-dojo-eight.vercel.app/' : appUrl('../')}`;
   try {
-    if (navigator.share) await navigator.share({ text: full });
-    else { await navigator.clipboard.writeText(full); toast('Copied. Paste it anywhere.'); }
+    if (await shareResult(full) === 'copied') toast('Copied. Paste it anywhere.');
   } catch { /* cancelled */ }
 }
 
@@ -923,7 +989,7 @@ function screenGame() {
         { g: E.stringify(g.grid), s: g.s, tech, kind, date: Date.now() });
     }
   };
-  let sel = -1, spot = 0, notesMode = false, lock = 0, hintStep = null, hintLv = 0, hintCands = null;
+  let sel = -1, spot = 0, notesMode = false, lock = 0, hintStep = null, hintLv = 0, hintCands = null, searchHinted = false;
   const tierXp = (TIERS.find(t => t.id === g.tier)?.xp) ?? (g.tier === 'mini-quick' ? 8 : 15);
 
   app.innerHTML = `
@@ -944,6 +1010,7 @@ function screenGame() {
             <button class="tool" id="fill"><span>▦</span>Fill notes</button>
             <button class="tool" id="quick" title="Quick fill: pick a digit, then tap cells"><span>⚡</span>Quick<i class="state"></i></button>
             <button class="tool hint" id="hint"><span>💡</span>Hint</button>
+            ${n === 9 ? '<button class="tool" id="guide-game">Guide me</button>' : ''}
           </div>
           ${numpad(n)}
           <p class="pad-label" id="mode"></p>
@@ -952,7 +1019,7 @@ function screenGame() {
     </main>`;
   const board = new Board($('#gb'), i => tap(i));
   const say = (html, actions = '') => { $('#coach').classList.remove('hidden'); $('#say').innerHTML = html; $('#hint-actions').innerHTML = actions; };
-  const hush = () => { $('#coach').classList.add('hidden'); hintStep = null; hintLv = 0; };
+  const hush = () => { $('#coach').classList.add('hidden'); hintStep = null; hintLv = 0; searchHinted = false; };
 
   const errors = () => {
     const e = new Set();
@@ -1067,6 +1134,31 @@ function screenGame() {
     hintStep = step; hintCands = cands; hintLv = 1; g.hints++; save(); showHint();
   }
   function showHint() {
+    if (n === 9 && hintStep.tech === 'hiddenSingleBox') {
+      searchHinted = true;
+      const { cell, digit } = hintStep.place[0];
+      const unit = G.CELL_UNITS[cell].find(u => boxes.includes(u));
+      const direct = E.searchFacts(g.grid, digit, unit);
+      if (hintLv < 3) {
+        if (hintLv === 2) {
+          if (direct.remaining.length !== 1) {
+            say('This move needs earlier note removals. Placed digits alone do not prove it.', '<button class="btn ghost sm" id="answer">Proof + answer</button>');
+            $('#answer').onclick = () => { hintLv = 3; showHint(); };
+            return render();
+          }
+          say('Search with me', '<button class="btn ghost sm" id="answer">Proof + answer</button>');
+          $('#answer').onclick = () => { hintLv = 3; showHint(); };
+          render();
+          return openSearch(g.grid, { fullPuzzle: true, puzzleId: g.id || g.p, hinted: true,
+            onPlace: r => { apply(r.cell, r.digit, false, true); },
+          });
+        }
+        say(`Try scanning the ${digit}s; ${g.grid.filter(v => v === digit).length} placed.`, '<button class="btn ghost sm" id="search">Search with me</button><button class="btn ghost sm" id="answer">Proof + answer</button>');
+        $('#search').onclick = () => { hintLv = 2; showHint(); };
+        $('#answer').onclick = () => { hintLv = 3; showHint(); };
+        return render();
+      }
+    }
     const L = LESSONS[hintStep.tech];
     const body = [`Try a <strong>${L.title}</strong> ${L.icon}. ${md(L.nudge)}`, md(hintStep.hint), md(hintStep.text)][hintLv - 1];
     const acts = hintLv < 3
@@ -1119,6 +1211,12 @@ function screenGame() {
   }
 
   app.querySelectorAll('.key').forEach(k => k.onclick = () => input(+k.dataset.d));
+  $('#guide-game')?.addEventListener('click', () => {
+    // The same validity checks as Hint run before a free-choice search.
+    if (g.grid.some((v, i) => v && v !== sol[i]) || g.notes.some((m, i) => !g.grid[i] && m && !E.has(m, sol[i]))) return hint();
+    if (g.done) return;
+    openSearch(g.grid, { fullPuzzle: true, puzzleId: g.id || g.p, hinted: searchHinted, onPlace: r => apply(r.cell, r.digit, false, true) });
+  });
   $('#undo').onclick = undo; $('#erase').onclick = erase; $('#fill').onclick = fill; $('#hint').onclick = hint;
   $('#notes').onclick = () => { notesMode = !notesMode; sfx('tap'); render(); };
   $('#quick').onclick = () => { S.settings.quick = !S.settings.quick; lock = 0; save(); sfx('tap'); render(); toast(S.settings.quick ? '⚡ Quick fill on: pick a digit, then tap cells' : 'Quick fill off'); };
@@ -1184,8 +1282,9 @@ function screenMe() {
     </div>
     <h2 class="sec-title">Daily reminder</h2>
     <div class="card" style="padding:16px">
-      <p class="muted small" style="margin:0 0 8px">Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.</p>
-      <div class="remind-row"><input type="time" id="remindAt" value="${S.settings.remindAt}"><button class="btn primary sm" id="ics">Add to my calendar</button></div>
+      <p class="muted small" style="margin:0 0 8px">${hasNativeBridge() ? "We'll send one gentle nudge a day. Skipped if you've already practised." : 'Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.'}</p>
+      ${hasNativeBridge() ? toggle('reminderOn', 'Daily reminder', 'One gentle nudge at your chosen time') + `<p id="reminderDenied" class="muted small" role="status" ${reminderDenied ? '' : 'hidden'}>Turn on notifications for Sudoku Belts in Settings.</p>` : ''}
+      <div class="remind-row"><input type="time" aria-label="Reminder time" id="remindAt" value="${S.settings.remindAt}">${hasNativeBridge() ? '' : '<button class="btn primary sm" id="ics">Add to my calendar</button>'}</div>
     </div>
     <h2 class="sec-title">Belts</h2>
     <div class="belts-row">${BELTS.map(b => `<div class="belt-tile ${b.lessons.every(lessonDone) ? 'got' : ''}"><span class="belt-big sm" style="--belt:${b.color}"></span><small>${b.name.replace(' Belt', '')}</small></div>`).join('')}</div>
@@ -1204,23 +1303,25 @@ function screenMe() {
     </div>
     <h2 class="sec-title">Back up your progress</h2>
     <div class="card" style="padding:16px">
-      <p class="muted small" style="margin:0 0 8px">Progress lives in this browser only. Clearing site data or switching phones wipes it. Save a backup file now and then, and open it here to bring everything back.</p>
+      <p class="muted small" style="margin:0 0 8px">${hasNativeBridge() ? 'Progress lives on this phone only. Deleting the app wipes it. Save a backup file now and then, and open it here to bring everything back.' : 'Progress lives in this browser only. Clearing site data or switching phones wipes it. Save a backup file now and then, and open it here to bring everything back.'}</p>
       <div class="row gap"><button class="btn primary sm" id="export">Save backup file</button><label class="btn ghost sm" for="import">Restore from file</label><input type="file" id="import" accept=".json,application/json" hidden></div>
     </div>
     <p class="muted small">XP = points for practising.</p>
     <button class="btn link danger" id="reset">Reset all progress</button>`);
   app.querySelectorAll('.toggle input').forEach(inp => inp.onchange = () => {
-    S.settings[inp.dataset.k] = inp.checked; fx.sound = S.settings.sound; save(); sfx('tap');
+    S.settings[inp.dataset.k] = inp.checked;
+    if (inp.dataset.k === 'reminderOn') syncReminder(inp.checked);
+    fx.sound = S.settings.sound; save(); sfx('tap');
   });
   $('#goal').onchange = e => { S.settings.goal = +e.target.value; save(); screenMe(); };
-  $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); };
-  $('#ics').onclick = () => {
+  $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); syncReminder(); };
+  if ($('#ics')) $('#ics').onclick = () => {
     download('sudoku-dojo-reminder.ics', H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today()), 'text/calendar');
     toast('Open the file to add it to your calendar');
   };
   $('#export').onclick = () => {
     download(`sudoku-dojo-backup-${today()}.json`, H.backupText(S, today()), 'application/json');
-    toast('Backup saved. Keep it somewhere safe.');
+    toast(hasNativeBridge() ? 'Choose where to save your backup.' : 'Backup saved. Keep it somewhere safe.');
   };
   $('#import').onchange = async e => {
     const file = e.target.files[0];
@@ -1236,16 +1337,8 @@ function screenMe() {
   $('#reset').onclick = () => { if (confirm('Erase all XP, belts, times and saved games?')) { S = fresh(); save(); route(); } };
 }
 
-function download(name, text, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-
 // ================= boot =================
 route();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if ('serviceWorker' in navigator && ['http:', 'https:'].includes(location.protocol)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

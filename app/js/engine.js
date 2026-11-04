@@ -60,6 +60,65 @@ export function basicCandidates(grid) {
   return c;
 }
 
+// Placed-digit search only: notes and earlier eliminations are deliberately ignored.
+// `unit` uses the geometry's row/column/box IDs; cell IDs are zero-based.
+// Callers must supply a valid grid. A single remaining cell proves a placement.
+export function searchFacts(grid, digit, unit) {
+  const G = geoOf(grid.length);
+  if (![36, 81].includes(grid.length) || !Number.isInteger(digit) || digit < 1 || digit > G.N
+      || !Number.isInteger(unit) || !G.UNITS[unit]) throw new RangeError('Invalid search');
+  const cells = G.UNITS[unit], filled = cells.filter(i => grid[i]);
+  const present = filled.some(i => grid[i] === digit), blockers = [];
+  const empty = cells.filter(i => !grid[i]);
+  for (let cell = 0; cell < grid.length; cell++) {
+    if (grid[cell] !== digit) continue;
+    // Keep each shared house, including box restrictions for row/column searches.
+    const beams = G.CELL_UNITS[cell].filter(u => empty.some(i => G.CELL_UNITS[i].includes(u)))
+      .map(unit => ({ unit, cells: empty.filter(i => G.UNITS[unit].includes(i)) }));
+    if (beams.length) blockers.push({ cell, cells: empty.filter(i => G.sees(cell, i)), beams });
+  }
+  const blocked = new Set(blockers.flatMap(b => b.cells));
+  const remaining = empty.filter(i => !blocked.has(i));
+  return { digit, unit, present, filled, blockers, remaining };
+}
+
+// Best starts first: prefer a digit with a forced house, then its placed count.
+// Within that digit: fewest remaining spots, boxes first, then stable house ID.
+// Return all viable searches so a learner's valid dead end can still be accepted.
+export function rankSearchStarts(grid, units = geoOf(grid.length).UNITS.map((_, u) => u)) {
+  const G = geoOf(grid.length), ranked = [];
+  for (let digit = 1; digit <= G.N; digit++) {
+    const placed = grid.filter(v => v === digit).length;
+    const searches = units.map(u => searchFacts(grid, digit, u))
+      .filter(s => !s.present && s.remaining.length);
+    const best = Math.min(...searches.map(s => s.remaining.length));
+    for (const s of searches) ranked.push({ ...s, placed, best });
+  }
+  return ranked.sort((a, b) => Number(b.best === 1) - Number(a.best === 1)
+    || b.placed - a.placed || a.best - b.best || a.digit - b.digit
+    || a.remaining.length - b.remaining.length || Number(G.isLine(a.unit)) - Number(G.isLine(b.unit))
+    || a.unit - b.unit).map(({ best, ...s }) => s);
+}
+
+// Grid is AFTER one placement at `last`. Reconstruct before to prove causality:
+// only this digit, only houses with >1 spots before and exactly 1 now.
+// A touched house can be outside the new digit's own row/column/box.
+export function searchFollowUps(grid, last) {
+  if (!Number.isInteger(last) || last < 0 || last >= grid.length || !grid[last]) return [];
+  const G = geoOf(grid.length), digit = grid[last], before = grid.slice();
+  before[last] = 0;
+  const out = [];
+  for (let unit = 0; unit < G.UNITS.length; unit++) {
+    const after = searchFacts(grid, digit, unit);
+    if (after.present || after.remaining.length !== 1) continue;
+    const prior = searchFacts(before, digit, unit);
+    const blocker = after.blockers.find(b => b.cell === last);
+    const removed = blocker?.cells.filter(i => prior.remaining.includes(i)) || [];
+    if (prior.remaining.length > 1 && removed.length) out.push({ ...after, removed });
+  }
+  return out;
+}
+
 // ---------- random ----------
 export function mulberry32(seed) {
   return function () {

@@ -1,0 +1,36 @@
+{
+  "uploadReady": true,
+  "note": "Approved by Nishit 2026-11-04. A new export resets this to false and needs a fresh review.",
+  "captures": [
+    {
+      "src": "/captures/01.png",
+      "ready": true,
+      "status": "Full-size capture · Learn path · White Belt · Next: Full House · approved 2026-11-04"
+    },
+    {
+      "src": "/captures/02.png",
+      "ready": true,
+      "status": "Full-size capture · Hidden Single: Box lesson · beam drawn · That 4 blocks column 9 in this box · approved 2026-11-04"
+    },
+    {
+      "src": "/captures/03.png",
+      "ready": true,
+      "status": "Full-size capture · Medium game in progress · 7s highlighted · 0 mistakes · approved 2026-11-04"
+    },
+    {
+      "src": "/captures/04.png",
+      "ready": true,
+      "status": "Full-size capture · Your missed moments replay · move 1 of 11 · coach prompt · approved 2026-11-04"
+    },
+    {
+      "src": "/captures/05.png",
+      "ready": true,
+      "status": "Full-size capture · Daily puzzle · 6s highlighted · approved 2026-11-04"
+    },
+    {
+      "src": "/captures/06.png",
+      "ready": true,
+      "status": "Full-size capture · Me · 1 of 3 practice days · Hidden Single in a column blind spot · daily reminder ON · approved 2026-11-04"
+    }
+  ]
+}

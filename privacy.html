@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="How Sudoku Belts keeps your progress on your device, with no data collected or tracking.">
+  <title>Privacy Policy — Sudoku Belts</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #F5EFE3; --surface: #FFFDF8; --ink: #1F2235; --muted: #66626B; --line: #DDD3C2; --accent: #E8613C;
+      --font: ui-rounded, system-ui, sans-serif; --display: Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #14151B; --surface: #1D1F28; --ink: #EDE8DF; --muted: #A09BA6; --line: #353846; --accent: #FF7A50; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--font); }
+    a { color: inherit; text-underline-offset: .2em; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+    nav { padding: 24px 0; }
+    .brand { font: bold 1.3rem var(--display); text-decoration: none; }
+    .brand em { color: var(--accent); }
+    main { margin: 16px 0 40px; }
+    article { padding: clamp(20px, 5vw, 40px); background: var(--surface); border: 1px solid var(--line); border-radius: 26px; }
+    h1, h2 { font-family: var(--display); line-height: 1.2; letter-spacing: -.015em; }
+    h1 { margin: 0 0 16px; font-size: clamp(2rem, 7vw, 3rem); }
+    h2 { margin: 28px 0 10px; font-size: 1.35rem; }
+    p { margin: 0 0 16px; }
+    article > :last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); }
+    footer { padding: 0 0 40px; color: var(--muted); font-size: .92rem; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+  </style>
+</head>
+<body>
+  <nav class="wrap" aria-label="Home"><a class="brand" href="index.html">Sudoku <em>Belts</em></a></nav>
+  <main class="wrap">
+    <article>
+      <h1>Privacy Policy</h1>
+      <p class="muted">Effective date: <time datetime="2026-11-04">4 November 2026</time></p>
+      <p>Sudoku Belts collects no data about you. There are no accounts, analytics, ads, or tracking. We run no app servers and do not receive your progress.</p>
+      <p>The website is a set of static files hosted by Vercel, which may keep standard access logs (such as IP address and time) for security. The iPhone app makes no network requests.</p>
+      <h2>Your progress stays with you</h2>
+      <p>On the web, progress and settings stay in your browser’s storage. On iPhone, they stay on your phone, inside the app. They do not sync across devices on their own.</p>
+      <p>Clearing browser data or deleting the iPhone app can erase your progress. Keep a backup if you want to restore it later.</p>
+      <h2>Backups are your choice</h2>
+      <p>A backup file is created only when you tap <strong>Save backup file</strong> under <strong>Me → Back up your progress</strong>. On iPhone, choose where to save or share it. On the web, your browser saves the download in its chosen location. We do not receive a copy.</p>
+      <h2>Reminders stay on your phone</h2>
+      <p>The optional daily reminder on iPhone is a local notification: your phone schedules and shows it. There is no push server. You can turn it off under <strong>Me → Daily reminder</strong>.</p>
+      <p>On the web, you can choose to add a reminder to your own calendar. Your calendar handles that reminder.</p>
+      <h2>Play offline</h2>
+      <p>The iPhone app works offline from the first launch. On the web, load and install the app first so it is ready for offline play. No internet connection is needed to solve puzzles or save progress.</p>
+      <h2>Questions?</h2>
+      <p><a href="https://github.com/bnishit/sudoku-dojo/issues">Open an issue on GitHub</a>. GitHub is a separate service. Anything you post in a public issue can be read by others, so leave out private details and backup files.</p>
+    </article>
+  </main>
+  <footer>
+    <div class="wrap">
+      <a href="index.html">Home</a>
+      <a href="privacy.html" aria-current="page">Privacy Policy</a>
+      <a href="support.html">Support</a>
+    </div>
+  </footer>
+</body>
+</html>
