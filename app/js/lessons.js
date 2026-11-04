@@ -1,7 +1,7 @@
 // Lesson content. Each technique id matches engine.js.
 export const BELTS = [
   { id: 'white', name: 'White Belt', color: 'var(--belt-white)', blurb: 'See what is already there.', lessons: ['fullHouse', 'hiddenSingleBox', 'hiddenSingleLine', 'nakedSingle'] },
-  { id: 'yellow', name: 'Yellow Belt', color: 'var(--belt-yellow)', blurb: 'Notes start talking to each other.', lessons: ['pointing', 'claiming'] },
+  { id: 'yellow', name: 'Yellow Belt', color: 'var(--belt-yellow)', blurb: 'Notes start talking to each other.', lessons: ['notes', 'pointing', 'claiming'] },
   { id: 'green', name: 'Green Belt', color: 'var(--belt-green)', blurb: 'Groups that lock digits away.', lessons: ['nakedPair', 'hiddenPair', 'nakedTriple'] },
   { id: 'brown', name: 'Brown Belt', color: 'var(--belt-brown)', blurb: 'Patterns that span the whole board.', lessons: ['xWing', 'yWing'] },
   { id: 'black', name: 'Black Belt', color: 'var(--belt-black)', blurb: 'The big fish.', lessons: ['swordfish'] },
@@ -24,17 +24,24 @@ export const LESSONS = {
   },
   hiddenSingleLine: {
     title: 'Hidden Single: Line', icon: '📏', tagline: 'One spot in a row or column',
-    idea: ['Same idea, aimed at a row or column. A row needs every digit once. For a missing digit, check each empty cell: is that digit already in the cell\'s column or box?', 'If only one cell survives, that is the digit\'s home.'],
+    idea: ['Same idea, aimed at a row or column. A row needs every digit once. For a missing digit, check each empty cell in the row: is that digit already in the cell\'s column or its box? (For a column, check each cell\'s row and box.)', 'If only one cell survives, that is the digit\'s home.'],
     analogy: 'Nine people, nine chairs. If every chair but one is "taken" for Sam, Sam\'s seat is decided.',
-    lookFor: ['Rows or columns with few empty cells', 'For a missing digit, test each empty cell', 'Columns and boxes do the blocking now'],
+    lookFor: ['Rows or columns with few empty cells', 'For a missing digit, test each empty cell', 'Check the crossing lines and the box for that digit'],
     nudge: 'Pick a row or column. Is there a missing digit with just one place to go?',
   },
   nakedSingle: {
     title: 'Naked Single', icon: '🎯', tagline: 'Only one digit fits',
-    idea: ['Flip it around: focus on one cell instead of one digit. List what its row, column and box already contain.', 'If you see eight different digits, the one left is the answer. Those leftover possibilities are called notes (or candidates). Writing them in small numbers is the key to every harder technique.'],
-    analogy: 'Like guessing a PIN digit when eight of the ten keys are smudge-free: only one is left.',
+    idea: ['Flip it around: focus on one cell instead of one digit. List what its row, column and box already contain.', 'If you see eight different digits, the one left is the answer. The digits that could still fit a cell are called **notes**. You will learn to write them in the next lesson. They are the key to every harder technique.'],
+    analogy: 'Like a key ring with nine keys: once eight of them don\'t fit the lock, the last one must.',
     lookFor: ['Cells where a row, column and box overlap and are busy', 'Count the different digits the cell can "see"', 'Eight seen means one left'],
     nudge: 'Look for a crowded cell. Which digits can it see?',
+  },
+  notes: {
+    title: 'Notes', icon: '✏️', tagline: 'Write down what could still fit', kind: 'notes',
+    idea: ['When no cell is forced yet, write the digits that could still go in each empty cell, in small numbers. These are called **notes** (some people say candidates or pencil marks).', 'To find a cell\'s notes, start from 1 to 9 and drop every digit its row, column or box already has. Every harder technique works by **removing** notes. Removing a note never fills a cell. It only means "not this one".'],
+    analogy: 'Like a guest list for one seat: you write everyone who could still sit there, and cross names off as you learn more.',
+    lookFor: ['Pick an empty cell', 'Check its row, its column and its box', 'Write every digit that none of them has'],
+    nudge: 'Tap digits to add or remove notes for the highlighted cell, then tap Check.',
   },
   pointing: {
     title: 'Pointing Pair', icon: '👉', tagline: 'A box points down a line',
@@ -81,7 +88,6 @@ export const LESSONS = {
   yWing: {
     title: 'Y-Wing', icon: '🪁', tagline: 'Pivot and two pincers',
     idea: ['A pivot cell has two notes, say {3,7}. It sees two other two-note cells, the pincers: {3,5} and {7,5}.', 'If the pivot is 3, the first pincer is 5. If it is 7, the second pincer is 5. Either way one pincer is 5, so any cell that sees both pincers can\'t be 5.'],
-    analogy: 'Whichever road you take out of town, you pass a petrol station. Wherever both roads meet, you don\'t need to look for one.',
     lookFor: ['Cells with exactly two notes', 'A pivot that shares one digit with each of two pincers', 'The pincers share the third digit'],
     nudge: 'Find a two-note cell that "sees" two other two-note cells forming an A-B, A-C, B-C chain.',
   },
@@ -95,9 +101,9 @@ export const LESSONS = {
 };
 
 export const TIERS = [
-  { id: 'gentle', name: 'Gentle', belt: 'white', xp: 10, desc: 'Lots of clues. Singles only.' },
-  { id: 'easy', name: 'Easy', belt: 'white', xp: 20, desc: 'Fewer clues. Still singles only.' },
-  { id: 'medium', name: 'Medium', belt: 'green', xp: 35, desc: 'Needs pointing pairs and subsets.' },
+  { id: 'gentle', name: 'Gentle', belt: 'white', xp: 10, desc: 'Lots of clues. Only White Belt moves.' },
+  { id: 'easy', name: 'Easy', belt: 'white', xp: 20, desc: 'Fewer clues. Still only White Belt moves.' },
+  { id: 'medium', name: 'Medium', belt: 'green', xp: 35, desc: 'Needs Yellow and Green Belt moves.' },
   { id: 'hard', name: 'Hard', belt: 'brown', xp: 60, desc: 'Triples, X-Wings and Y-Wings.' },
   { id: 'expert', name: 'Expert', belt: 'black', xp: 100, desc: 'Swordfish or several big patterns.' },
 ];

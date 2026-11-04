@@ -16,9 +16,9 @@
 </p>
 
 <p align="center">
+  <img src="assets/learn.png" width="230" alt="Home: today's practice, weekly view and the next lesson">
   <img src="assets/lesson-step3.png" width="230" alt="A lesson: the coach explains a Hidden Single">
   <img src="assets/practice-xwing.png" width="230" alt="Practice: an X-Wing found and its notes crossed out">
-  <img src="assets/mini-6x6.png" width="230" alt="Mini 6×6 game">
 </p>
 
 ---
@@ -33,8 +33,12 @@ Sudoku Dojo teaches the **techniques** strong players use, one at a time. You le
 
 | | |
 |---|---|
-| 🥋 **12 lessons, 5 belts** | Each lesson has a short idea, an everyday comparison, and a 3-step walkthrough on a real board. Then you solve 3 on your own. Nothing is locked. |
-| 💡 **Hints that teach** | Level 1 names the technique. Level 2 lights up where to look. Level 3 explains the move and can apply it. Hints also catch mistakes, including notes that rubbed out the right answer. |
+| 🥋 **13 lessons, 5 belts** | Each lesson has a short idea, an everyday comparison, and a 3-step walkthrough on a real board. Then you solve 3 on your own. Nothing is locked. |
+| ✏️ **A real notes lesson** | Before the first note-based technique, you write notes by hand. If one is wrong, it tells you exactly why ("there's already a 2 at R1C7, in the same row"). |
+| 📅 **Today's practice** | One button, 5 "mystery moves": find the next move without being told which technique. Techniques you needed help with come back sooner (spaced review). One move counts as a practice day. |
+| 🗓️ **A forgiving habit** | A Mon–Sun week view, a weekly goal you choose (1–7 days), a streak that allows one rest day a week, a warm "welcome back", an optional calendar reminder, and a spoiler-free share. |
+| 🤔 **Feedback that explains** | Wrong answers say *why*: that note is part of the pattern, outside its reach, or a digit the pattern doesn't touch. Lesson boards show row and column numbers. |
+| 💡 **Hints that teach** | Level 1 names the technique. Level 2 lights up where to look. Level 3 explains the move and can apply it, with a colour key. Hints also catch mistakes, including notes that rubbed out the right answer. Hints never cost stars; solving alone earns a 🏅. |
 | 🎯 **Practice any technique** | 30 real positions for every technique, so you can drill X-Wings until they're automatic. |
 | ⚡ **Technique Rush** | 90 seconds to spot as many techniques as you can. Each find adds 3 seconds; a wrong tap costs 2. |
 | 🧩 **Play** | 9×9 in five levels (Gentle → Expert), a daily puzzle, and **Mini 6×6** for quick games. |
@@ -52,6 +56,7 @@ Sudoku Dojo teaches the **techniques** strong players use, one at a time. You le
 | ⬜ White | Hidden Single · Box | Copies of a digit cross out every cell of a box but one. |
 | ⬜ White | Hidden Single · Line | The same idea in a row or column. |
 | ⬜ White | Naked Single | A cell sees eight different digits, so one is left. |
+| 🟨 Yellow | Notes | Write the digits that could still fit each cell. (A skill, not a technique.) |
 | 🟨 Yellow | Pointing Pair | A digit's notes in a box all sit on one line, so clear the rest of that line. |
 | 🟨 Yellow | Box-Line Reduction | A digit's notes in a line all sit in one box, so clear the rest of that box. |
 | 🟩 Green | Naked Pair | Two cells share the same two notes, so they own those digits. |
@@ -89,6 +94,16 @@ The puzzles aren't hand-typed. A build script generates about 10,000 puzzles and
 
 6×6 puzzles are made on the fly in your browser, with the same uniqueness and logic checks.
 
+## Why it's built this way
+
+Every big decision traces back to a research report in [`research/`](research/):
+
+- **Teaching:** mixed, unlabeled practice (choosing the right tool) beats drilling one technique at a time, and spaced review beats cramming. That's why Today's practice uses mystery moves.
+- **Habit:** count a small, real action as a practice day, show the week instead of punishing one missed day, and welcome people back. No guilt, no notification spam.
+- **Novice review:** a beginner hit a wall going from singles to notes-based techniques, so there's now a Notes lesson and wrong answers explain themselves.
+
+The plan, and what's done, lives on the task board: [`TASKS.md`](TASKS.md).
+
 ## Run it locally
 
 No build step and no dependencies. Any static file server works:
@@ -103,10 +118,14 @@ cd sudoku-dojo && python3 -m http.server 5178
 
 Then open <http://localhost:5178> for the landing page or <http://localhost:5178/app/> for the app.
 
-To regenerate the puzzle and lesson bank (Node 18+):
+To regenerate the puzzle and lesson bank, and to run the checks (Node 18+):
 
 ```bash
 npm run bank
+```
+
+```bash
+npm test
 ```
 
 ## Project structure
@@ -120,12 +139,17 @@ npm run bank
 │   ├── js/engine.js       Board geometry (9×9 and 6×6), solver, generator, 12 technique finders
 │   ├── js/board.js        Draws the board, notes and technique highlights
 │   ├── js/lessons.js      Lesson text, belts and difficulty levels
+│   ├── js/habit.js        Practice days, forgiving streak, week view, spaced review, calendar reminder
 │   ├── js/app.js          Screens, game logic, hints, progress storage
 │   ├── js/fx.js           Sound, haptics and confetti
 │   ├── data/bank.js       Generated puzzles and lesson positions
 │   ├── sw.js              Offline cache
 │   └── manifest.webmanifest
 ├── tools/build-bank.js    Generates and checks data/bank.js
+├── tools/check.js         npm test: engine on every bank position + habit logic
+├── research/              Research reports behind the roadmap
+├── TASKS.md               Task board: done / in progress / remaining
+├── AGENTS.md, CLAUDE.md   Guide for AI agents working on this repo
 ├── assets/                Screenshots
 └── vercel.json            Static hosting config
 ```

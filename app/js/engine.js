@@ -185,7 +185,8 @@ function coverBlockers(st, G, others, d, u) {
     }
     left = left.filter(o => !cov.includes(o));
   }
-  return { blockers, beams: [...beams] };
+  const viaNotes = others.filter(o => !blockers.some(b => G.sees(b, o)));
+  return { blockers, beams: [...beams], viaNotes };
 }
 
 function hiddenSingle(st, G, first, units, tech) {
@@ -198,13 +199,16 @@ function hiddenSingle(st, G, first, units, tech) {
     const cell = pos[0];
     seen.add(cell);
     const others = cells.filter(i => !st.grid[i] && i !== cell);
-    const { blockers, beams } = coverBlockers(st, G, others, d, u);
+    const { blockers, beams, viaNotes } = coverBlockers(st, G, others, d, u);
+    const why = viaNotes.length
+      ? `The ${d}s already on the board rule out some cells, and earlier note removals rule out ${list(viaNotes.map(c => bold(G.cellName(c))))}.`
+      : `The ${d}s already on the board cross out every other empty cell.`;
     out.push({
       tech, digit: d, place: [{ cell, digit: d }], elim: [], units: [u], beams,
       cells: [...blockers.map(c => ({ cell: c, role: 'blocker' })), ...others.map(c => ({ cell: c, role: 'blocked' })), { cell, role: 'target' }],
       marks: [],
       hint: `Look at ${bold(G.unitName(u))}. Where can a ${bold(d)} go?`,
-      text: `Where can ${bold(d)} go in ${bold(G.unitName(u))}? The ${d}s already on the board cross out every other empty cell, so ${d} has one home left: ${bold(G.cellName(cell))}.`,
+      text: `Where can ${bold(d)} go in ${bold(G.unitName(u))}? ${why} So ${d} has one home left: ${bold(G.cellName(cell))}.`,
     });
     if (first) return out;
   }
@@ -256,7 +260,9 @@ function lockedCandidates(st, G, first, pointing) {
         tech: pointing ? 'pointing' : 'claiming', digit: d, place: [], elim, units: [b, L], beams: [],
         cells: pos.map(cell => ({ cell, role: 'pattern' })),
         marks: [...pos.map(cell => ({ cell, digit: d, role: 'key' })), ...elim.map(e => ({ ...e, role: 'elim' }))],
-        hint: `Look at the ${bold(d)}s in ${bold(G.unitName(b))}. Do they all line up?`,
+        hint: pointing
+          ? `Look at the ${bold(d)} notes in ${bold(G.unitName(b))}. Do they all sit in one row or one column?`
+          : `Look at the ${bold(d)} notes in ${bold(G.unitName(b))}. Are they all inside one box?`,
         text,
       });
       if (first) return out;
@@ -292,7 +298,9 @@ function nakedSubset(st, G, first, n, tech) {
         tech, place: [], elim, units, beams: [],
         cells: set.map(cell => ({ cell, role: 'pattern' })),
         marks: [...set.flatMap(cell => digitsOf(st.cands[cell]).map(digit => ({ cell, digit, role: 'key' }))), ...elim.map(e => ({ ...e, role: 'elim' }))],
-        hint: `Look in ${bold(G.unitName(units[0]))}. Can you find ${word} cells that share the same ${word} notes?`,
+        hint: n === 2
+          ? `Look in ${bold(G.unitName(units[0]))}. Can you find two cells that both have exactly the same two notes?`
+          : `Look in ${bold(G.unitName(units[0]))}. Can you find three cells whose notes use only three different digits between them? They don't need identical notes.`,
         text: `${intro} ${cap(word)} cells, ${word} digits: they will use up ${list(ds)} in ${list(units.map(G.unitName))}, even though we don't know which goes where yet. So no other cell there can be ${list(ds)}.`,
       });
       if (first) return out;

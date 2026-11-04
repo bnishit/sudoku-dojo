@@ -10,29 +10,7 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 
 ## 🚧 In progress
 
-### Release 2 — "Bridge" (singles → notes drop-off)
-- [ ] Fix Naked Triple hint: "same three notes" → "only three digits between them" (28/30 positions affected) 🔬 novice · S
-- [ ] Fix Box-Line Reduction hint: "do they line up?" → "are they all inside one box?" 🔬 novice · S
-- [ ] Hidden single text must not claim placed digits do all the blocking when earlier note removals are needed (263 hints / 108 of 200 puzzles) 🔬 novice · S
-- [ ] Copy fixes: row/column lesson wording, PIN analogy, Y-Wing analogy, tier descriptions 🔬 novice · S
-- [ ] New lesson "Notes" between Naked Single and Pointing Pair: add notes by hand, get told why a note is wrong/missing 🔬 novice · M
-- [ ] Wrong answers explain **why** (part of the pattern / outside its reach / digit not involved / cell could still be X) 🔬 novice + teaching · M
-- [ ] Row/column labels + box map on lesson and practice boards 🔬 novice · M
-- [ ] Colour legend for highlights (pattern, removed, pivot, pincers) 🔬 novice · S
-- [ ] Stars no longer punish hints: stars from mistakes; separate "Solved on your own 🏅" 🔬 novice · S
-- [ ] Practice progress counts unique positions, not repeats 🔬 novice · S
-- [ ] "Fill notes" keeps your own deductions instead of overwriting them 🔬 novice · S
-- [ ] Me → "Puzzles" counts all wins, not the capped history list 🔬 novice · S
-
-### Release 3 — "Daily practice"
-- [ ] Mystery move: find any valid next move, technique not named; reveal which one it was 🔬 teaching · M
-- [ ] Spaced review queue per technique (1 → 3 → 7 → 14 days; reset on hint or mistake) 🔬 teaching · M
-- [ ] "Today's practice" one-button session: 5 mystery moves, 1 counts as a practice day 🔬 habit · M
-- [ ] Weekly view (Mon–Sun dots) + weekly goal (default 3, settable 1–7) 🔬 habit · M
-- [ ] Forgiving streak: 1 rest day per 7 allowed, best streak kept 🔬 habit · S
-- [ ] Warm "Welcome back" after a break 🔬 habit · S
-- [ ] Optional calendar reminder (.ics download, no server) 🔬 habit · S
-- [ ] Spoiler-free share of today's result 🔬 habit · S
+_Nothing right now. Pick the top item from Remaining, move it here, and go._
 
 ---
 
@@ -52,6 +30,33 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 ---
 
 ## ✅ Done
+
+### Release 3 — "Daily practice" (2026-11-04)
+- [x] Mystery move: find any valid next move, technique not named; reveal which one it was 🔬 teaching · M
+- [x] Spaced review queue per technique (1 → 3 → 7 → 14 → 30 days; reset on hint or mistake) 🔬 teaching · M
+- [x] "Today's practice" one-button session: 5 mystery moves, 1 counts as a practice day 🔬 habit · M
+- [x] Weekly view (Mon–Sun dots) + weekly goal (default 3, settable 1–7) 🔬 habit · M
+- [x] Forgiving streak: 1 rest day per 7 allowed, best streak kept 🔬 habit · S
+- [x] Warm "Welcome back" after a break 🔬 habit · S
+- [x] Optional calendar reminder (.ics download, no server) 🔬 habit · S
+- [x] Spoiler-free share of today's result 🔬 habit · S
+- [x] Mystery-moves card in Practice; Rush described as best for techniques that already feel easy
+
+### Release 2 — "Bridge" (2026-11-04)
+- [x] Fix Naked Triple hint: "same three notes" → "only three digits between them" (28/30 positions affected) 🔬 novice · S
+- [x] Fix Box-Line Reduction hint: "do they line up?" → "are they all inside one box?" 🔬 novice · S
+- [x] Hidden single text must not claim placed digits do all the blocking when earlier note removals are needed (263 hints / 108 of 200 puzzles) 🔬 novice · S
+- [x] Copy fixes: row/column lesson wording, PIN analogy, Y-Wing analogy, tier descriptions 🔬 novice · S
+- [x] New lesson "Notes" between Naked Single and Pointing Pair: add notes by hand, get told why a note is wrong/missing 🔬 novice · M
+- [x] Wrong answers explain **why** (part of the pattern / outside its reach / digit not involved / cell could still be X) 🔬 novice + teaching · M
+- [x] Row/column labels + box map on lesson and practice boards 🔬 novice · M
+- [x] Colour legend for highlights (pattern, removed, pivot, pincers) 🔬 novice · S
+- [x] Stars no longer punish hints: stars from mistakes; separate "Solved on your own 🏅" 🔬 novice · S
+- [x] Practice progress counts unique positions, not repeats 🔬 novice · S
+- [x] "Fill notes" keeps your own deductions instead of overwriting them 🔬 novice · S
+- [x] Me → "Puzzles" counts all wins, not the capped history list 🔬 novice · S
+
+- [x] `npm test` (tools/check.js): engine on every bank position, hint-text honesty, 6×6, habit logic
 
 ### Release 1 — first launch (2026-11-04)
 - [x] Engine: 9×9 + 6×6 geometry, unique-solution solver, symmetric generator, 12 technique finders with highlights and explanations

@@ -1,4 +1,5 @@
 import * as E from './engine.js';
+import * as H from './habit.js';
 import { BANK } from '../data/bank.js';
 import { LESSONS, BELTS, TIERS } from './lessons.js';
 import { Board, md } from './board.js';
@@ -10,24 +11,31 @@ const app = $('#app');
 // ================= storage (this browser only) =================
 const KEY = 'sudoku-dojo-v1';
 const fresh = () => ({
-  xp: 0, streak: { n: 0, last: '' }, lessons: {}, gym: {}, solved: {}, best: {}, wins: {}, history: [],
-  settings: { mistakes: true, peers: true, sound: true, quick: false }, game: null, rushBest: 0,
+  xp: 0, days: [], bestStreak: 0, lessons: {}, gym: {}, reviews: {}, solved: {}, best: {}, wins: {}, history: [],
+  settings: { mistakes: true, peers: true, sound: true, quick: false, goal: 3, remindAt: '08:00' }, game: null, rushBest: 0,
 });
 let S = load();
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || '{}'), f = fresh();
-    return { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) }, streak: { ...f.streak, ...(d.streak || {}) } };
+    const s = { ...f, ...d, settings: { ...f.settings, ...(d.settings || {}) } };
+    // migrate release-1 saves
+    if (d.streak?.last && !d.days) s.days = [d.streak.last];
+    delete s.streak;
+    for (const [t, v] of Object.entries(s.gym)) if (typeof v === 'number') s.gym[t] = { n: v, ids: [] };
+    return s;
   } catch { return fresh(); }
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage full or blocked */ } }
 fx.sound = S.settings.sound;
 
-const today = () => new Date().toLocaleDateString('en-CA');
+const today = () => H.dayKey();
+const streakNow = () => H.streak(S.days, today());
+// Any XP comes from real practice, so it also marks today as a practice day.
 function award(xp, why) {
   S.xp += xp;
-  const t = today(), y = new Date(Date.now() - 864e5).toLocaleDateString('en-CA');
-  if (S.streak.last !== t) { S.streak.n = S.streak.last === y ? S.streak.n + 1 : 1; S.streak.last = t; }
+  S.days = H.addDay(S.days, today());
+  S.bestStreak = Math.max(S.bestStreak, streakNow());
   save();
   toast(`+${xp} XP${why ? ' · ' + why : ''}`, 'xp');
 }
@@ -36,11 +44,15 @@ function award(xp, why) {
 const shuffle = a => E.shuffle(a.slice());
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const beltOf = id => BELTS.find(b => b.id === id);
+const LESSON_ORDER = BELTS.flatMap(b => b.lessons);
 const lessonDone = t => !!S.lessons[t]?.done;
 const beltsEarned = () => BELTS.filter(b => b.lessons.every(lessonDone));
-const nextLesson = () => E.TECH_ORDER.find(t => !lessonDone(t));
+const nextLesson = () => LESSON_ORDER.find(t => !lessonDone(t));
 const beltForTech = t => BELTS.find(b => b.lessons.includes(t));
+const learnedTechs = () => { const l = E.TECH_ORDER.filter(lessonDone); return l.length ? l : BELTS[0].lessons; };
 const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+const pick = a => a[(Math.random() * a.length) | 0];
+const appUrl = path => new URL(path, location.href.split('#')[0]).href;
 
 function toast(msg, kind = '') {
   const el = $('#toast');
@@ -74,7 +86,7 @@ let active = null;
 let timers = [];
 const clearTimers = () => { timers.forEach(clearInterval); timers = []; };
 document.addEventListener('keydown', e => {
-  if (!active || e.target.closest('input,textarea') || document.querySelector('.overlay')) return;
+  if (!active || e.target.closest('input,textarea,select') || document.querySelector('.overlay')) return;
   active.key?.(e);
 });
 
@@ -84,12 +96,41 @@ function numpad(n, label = '') {
   return h + `</div>${label ? `<p class="pad-label">${label}</p>` : ''}`;
 }
 
+// Board container; labeled boards show row/column numbers so "R4C7" is easy to find.
+function boardFrame(id, n = 9, labeled = false) {
+  const nums = Array.from({ length: n }, (_, i) => `<span>${i + 1}</span>`).join('');
+  return `<div class="board-frame${labeled ? ' labeled' : ''}" style="--n:${n}">${labeled ? `<div class="col-labels">${nums}</div><div class="row-labels">${nums}</div>` : ''}<div id="${id}"></div></div>`;
+}
+const keypadMap = `<span class="keypad-map" aria-hidden="true">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<i>${d}</i>`).join('')}</span>`;
+
+// What the colours mean, for the step currently shown.
+function legend(step, level) {
+  if (!step || level < 2) return '';
+  const roles = new Set(step.cells.map(c => c.role).filter(r => r !== 'target' || level >= 3));
+  const items = [];
+  if (step.units.length) items.push(['unit', 'where to look']);
+  if (roles.has('blocker')) items.push(['blocker', 'digit doing the blocking']);
+  if (roles.has('blocked')) items.push(['blocked', 'ruled out']);
+  if (roles.has('pattern')) items.push(['pattern', 'the pattern']);
+  if (roles.has('pivot')) items.push(['pivot', 'pivot']);
+  if (roles.has('pincer')) items.push(['pincer', 'pincers']);
+  if (step.marks.some(m => m.role === 'key')) items.push(['key', 'notes that form it']);
+  if (level >= 3 && step.elim.length) items.push(['elim', 'notes it removes']);
+  if (level >= 3 && step.place.length) items.push(['target', 'the answer']);
+  return `<div class="legend">${items.map(([c, t]) => `<span><i class="lg-${c}"></i>${t}</span>`).join('')}</div>`;
+}
+
 function moveSel(sel, key, n) {
   const r = sel < 0 ? 0 : (sel / n) | 0, c = sel < 0 ? 0 : sel % n;
   const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[key];
   if (!d) return null;
   return ((r + d[0] + n) % n) * n + ((c + d[1] + n) % n);
 }
+
+function weekHtml() {
+  return `<div class="week">${H.week(S.days, today()).map(d => `<span class="d${d.done ? ' done' : ''}${d.today ? ' today' : ''}${d.future ? ' future' : ''}"><i>${d.done ? '✓' : ''}</i>${d.label}</span>`).join('')}</div>`;
+}
+const weekCount = () => H.week(S.days, today()).filter(d => d.done).length;
 
 // ================= shell & routing =================
 const TABS = [
@@ -101,8 +142,8 @@ function shell(tab, body) {
     <header class="top">
       <div class="brand"><span class="logo">${logoSvg()}</span><span>Sudoku <em>Dojo</em></span></div>
       <div class="chips">
-        <span class="chip" title="Day streak">🔥 ${S.streak.n}</span>
-        <span class="chip" title="Experience">⭐ ${S.xp}</span>
+        <span class="chip" title="Day streak (one rest day a week is allowed)">🔥 ${streakNow()}</span>
+        <span class="chip" title="XP: points for practising">⭐ ${S.xp}</span>
         <span class="chip belt-chip" style="--belt:${belt ? belt.color : 'var(--line)'}" title="${belt ? belt.name : 'No belt yet'}"></span>
       </div>
     </header>
@@ -117,22 +158,40 @@ function route() {
   document.querySelectorAll('.overlay').forEach(o => o.remove());
   const [, name = 'learn', arg] = location.hash.split('/');
   window.scrollTo(0, 0);
-  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, me: screenMe }[name] || screenLearn)(arg);
+  ({ learn: screenLearn, lesson: screenLesson, play: screenPlay, game: screenGame, gym: arg ? screenGymTech : screenGym, rush: screenRush, daily: screenDaily, me: screenMe }[name] || screenLearn)(arg);
 }
 window.addEventListener('hashchange', route);
 const go = h => { if (location.hash === h) route(); else location.hash = h; };
 
 // ================= LEARN =================
+function todayCard() {
+  const doneToday = S.days.includes(today()), away = H.daysAway(S.days, today());
+  const welcome = !doneToday && away >= 2 && S.days.length;
+  return `
+    <section class="today-card pop-in">
+      <div>
+        <p class="eyebrow">${welcome ? 'Welcome back 👋' : doneToday ? 'Today ✓' : 'Today'}</p>
+        <h2>${doneToday ? 'Practised today. Nice!' : welcome ? 'Ready for one move?' : "Today's practice"}</h2>
+        <p>${doneToday ? 'Come back tomorrow, or keep going.' : '5 quick moves, about 3 minutes. Even one move counts.'}</p>
+      </div>
+      <div class="today-row">
+        <div>${weekHtml()}<p class="week-meta">${weekCount()} of ${S.settings.goal} days this week · 🔥 ${streakNow()}</p></div>
+        <a class="btn primary" href="#/daily">${doneToday ? 'Practise more' : 'Start'}</a>
+      </div>
+    </section>`;
+}
+
 function screenLearn() {
   const earned = beltsEarned().length, next = nextLesson();
-  const doneCount = E.TECH_ORDER.filter(lessonDone).length;
-  const curBelt = next ? beltForTech(next) : BELTS.at(-1);
+  const doneCount = LESSON_ORDER.filter(lessonDone).length;
+  const started = E.TECH_ORDER.some(lessonDone);
   shell('learn', `
+    ${started ? todayCard() : ''}
     <section class="hero">
       <div class="hero-text">
-        <p class="eyebrow">${earned ? `${beltsEarned().at(-1).name} · ` : ''}${doneCount}/12 techniques</p>
+        <p class="eyebrow">${earned ? `${beltsEarned().at(-1).name} · ` : ''}${doneCount}/${LESSON_ORDER.length} lessons</p>
         <h1>${next ? `Next up: ${LESSONS[next].title}` : 'You are a Black Belt 🥷'}</h1>
-        <p class="muted">${next ? LESSONS[next].tagline + '. Learn it in about 3 minutes.' : 'Every technique mastered. Go hunt Expert puzzles.'}</p>
+        <p class="muted">${next ? LESSONS[next].tagline + '. About 3 minutes.' : 'Every technique learned. Go hunt Expert puzzles.'}</p>
         <div class="row gap">
           ${next ? `<a class="btn primary" href="#/lesson/${next}">Start lesson</a>` : `<a class="btn primary" href="#/play">Play Expert</a>`}
           <a class="btn ghost" href="#/gym">Practice</a>
@@ -149,7 +208,7 @@ function screenLearn() {
             return `<a class="node ${st?.done ? 'done' : ''} ${t === next ? 'next' : ''}" href="#/lesson/${t}" style="--belt:${b.color}">
               <span class="node-ic">${L.icon}</span>
               <span class="node-body"><strong>${L.title}</strong><small>${L.tagline}</small></span>
-              <span class="node-end">${st?.done ? `<span class="stars">${stars(st.stars)}</span>` : t === next ? '<span class="pill">Next</span>' : '›'}</span>
+              <span class="node-end">${st?.done ? `<span class="stars">${stars(st.stars)}</span>${st.solo ? ' 🏅' : ''}` : t === next ? '<span class="pill">Next</span>' : '›'}</span>
             </a>`;
           }).join('')}
         </div>
@@ -161,14 +220,16 @@ function screenLearn() {
 function screenLesson(tech) {
   const L = LESSONS[tech];
   if (!L) return go('#/learn');
-  const bank = BANK.lessons[tech], belt = beltForTech(tech), placing = E.PLACING.has(tech);
+  const belt = beltForTech(tech), isNotes = L.kind === 'notes';
+  const bank = BANK.lessons[isNotes ? 'pointing' : tech], placing = E.PLACING.has(tech);
   const practice = shuffle(bank.slice(1)).slice(0, 3), results = [];
   let phase = 'intro', beat = 0, pi = 0;
+  const steps = isNotes ? ['intro', 'notes'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
 
   const draw = () => {
     clearTimers(); active = null;
-    const steps = ['intro', 'watch', 'p0', 'p1', 'p2'], cur = phase === 'practice' ? 'p' + pi : phase;
-    const idx = phase === 'done' ? 5 : steps.indexOf(cur);
+    const cur = phase === 'practice' ? 'p' + pi : phase;
+    const idx = phase === 'done' ? steps.length : steps.indexOf(cur);
     app.innerHTML = `
       <header class="bar">
         <a class="icon-btn" href="#/learn" aria-label="Close">✕</a>
@@ -181,22 +242,24 @@ function screenLesson(tech) {
       root.innerHTML = `
         <div class="intro pop-in">
           <div class="big-ic">${L.icon}</div>
-          <p class="eyebrow">${belt.name} · Lesson ${E.TECH_ORDER.indexOf(tech) + 1} of 12</p>
+          <p class="eyebrow">${belt.name} · Lesson ${LESSON_ORDER.indexOf(tech) + 1} of ${LESSON_ORDER.length}</p>
           <h1>${L.title}</h1>
           ${L.idea.map(p => `<p>${md(p)}</p>`).join('')}
-          <div class="analogy"><span>💡</span><p>${md(L.analogy)}</p></div>
+          ${L.analogy ? `<div class="analogy"><span>💡</span><p>${md(L.analogy)}</p></div>` : ''}
           <h3>What to look for</h3>
           <ul class="look">${L.lookFor.map(x => `<li>${md(x)}</li>`).join('')}</ul>
-          <p class="muted small">Cells are named by row and column: <strong>R4C7</strong> is row 4, column 7.</p>
-          <button class="btn primary wide" id="next">Show me on a real puzzle →</button>
+          <p class="muted small"><strong>R4C7</strong> means row 4, column 7. Boxes are numbered like a phone keypad ${keypadMap}</p>
+          <button class="btn primary wide" id="next">${isNotes ? "Let's write some notes →" : 'Show me on a real puzzle →'}</button>
         </div>`;
-      $('#next').onclick = () => { phase = 'watch'; draw(); };
+      $('#next').onclick = () => { phase = isNotes ? 'notes' : 'watch'; draw(); };
+    } else if (phase === 'notes') {
+      notesExercise(root, bank[0], r => { results.push(r); phase = 'done'; finish(); draw(); });
     } else if (phase === 'watch') {
       const st = posState(bank[0]);
       const step = E.findAll(st, tech)[0];
       root.innerHTML = `
         <div class="play-layout">
-          <div class="board-wrap"><div id="board"></div></div>
+          <div class="board-wrap">${boardFrame('board', 9, true)}</div>
           <div class="side">
             <div class="coach"><span class="owl">🦉</span><div class="bubble" id="say"></div></div>
             <div class="row gap"><button class="btn ghost" id="back">← Back</button><button class="btn primary grow" id="fwd"></button></div>
@@ -205,8 +268,9 @@ function screenLesson(tech) {
       const board = new Board($('#board'), () => {});
       const show = () => {
         const lines = [`Let's find a **${L.title}** together. ${L.nudge}`, step.hint, step.text];
-        $('#say').innerHTML = `<p class="beat">Step ${beat + 1} of 3</p>${md(lines[beat])}`;
-        board.render({ grid: st.grid, givens: st.grid.map(Boolean), notes: placing ? null : st.cands, step, level: [0, 2, 3][beat] });
+        const lv = [0, 2, 3][beat];
+        $('#say').innerHTML = `<p class="beat">Step ${beat + 1} of 3</p>${md(lines[beat])}${legend(step, lv)}`;
+        board.render({ grid: st.grid, givens: st.grid.map(Boolean), notes: placing ? null : st.cands, step, level: lv });
         if (beat === 2) { (step.place.length ? step.place : step.elim).forEach((p, k) => board.pulse(p.cell, 'pop', k)); sfx('good'); }
         $('#back').disabled = beat === 0;
         $('#fwd').textContent = beat === 2 ? 'Your turn →' : 'Next';
@@ -217,30 +281,34 @@ function screenLesson(tech) {
     } else if (phase === 'practice') {
       root.innerHTML = `<p class="task-head">Your turn · <strong>${pi + 1} of 3</strong></p><div id="task"></div>`;
       mountTask($('#task'), {
-        pos: practice[pi], tech,
+        pos: practice[pi], tech, labeled: true,
         onDone: r => { results.push(r); pi++; phase = pi >= practice.length ? 'done' : 'practice'; if (phase === 'done') finish(); draw(); },
       });
     } else {
-      const st = S.lessons[tech];
+      const st = S.lessons[tech], nl = nextLesson();
       root.innerHTML = `
         <div class="intro center pop-in">
           <div class="big-ic">🎉</div>
           <h1>${L.title} learned!</h1>
           <p class="stars huge">${stars(st.stars)}</p>
-          <p class="muted">${st.stars === 3 ? 'Flawless. No hints, no slips.' : 'Hints and wrong taps cost stars. Replay any time for 3 stars.'}</p>
+          <p>${st.lastSolo ? '<span class="solo">Solved on your own 🏅</span>' : '<span class="muted">Done with a little help. That is how learning works. Replay any time to try it solo.</span>'}</p>
           <div class="row gap center">
-            <a class="btn ghost" href="#/gym/${tech}">Practice more</a>
-            ${nextLesson() ? `<a class="btn primary" href="#/lesson/${nextLesson()}">Next: ${LESSONS[nextLesson()].title}</a>` : `<a class="btn primary" href="#/play">Play a puzzle</a>`}
+            ${isNotes ? '' : `<a class="btn ghost" href="#/gym/${tech}">Practice more</a>`}
+            ${nl ? `<a class="btn primary" href="#/lesson/${nl}">Next: ${LESSONS[nl].title}</a>` : `<a class="btn primary" href="#/play">Play a puzzle</a>`}
           </div>
         </div>`;
     }
   };
 
+  // Stars measure accuracy only. Hints never cost stars; solving without them earns a separate medal.
   const finish = () => {
     const beltsBefore = beltsEarned().length;
-    const score = Math.min(...results.map(r => (r.hints === 0 && r.mistakes === 0 ? 3 : r.hints <= 2 && r.mistakes <= 2 ? 2 : 1)));
+    const worst = Math.max(...results.map(r => r.mistakes));
+    const score = worst === 0 ? 3 : worst <= 2 ? 2 : 1;
+    const solo = results.every(r => !r.hints && !r.mistakes);
     const prev = S.lessons[tech];
-    S.lessons[tech] = { done: true, stars: Math.max(prev?.stars || 0, score) };
+    S.lessons[tech] = { done: true, stars: Math.max(prev?.stars || 0, score), solo: !!(prev?.solo || solo), lastSolo: solo };
+    if (!isNotes) S.reviews[tech] = H.review(S.reviews[tech], solo, today());
     award(prev?.done ? 15 : 50, 'lesson');
     sfx('win'); confetti();
     const nb = beltsEarned();
@@ -255,22 +323,81 @@ function beltCeremony(b) {
     (o, close) => o.querySelector('[data-close]').onclick = close);
 }
 
-// ================= TASK: find one technique on a real position =================
-// Used by lesson practice, technique practice and Rush.
-function mountTask(root, { pos, tech, onDone, rush = false, onWrong }) {
-  const L = LESSONS[tech], placing = E.PLACING.has(tech);
-  const st = posState(pos), n = Math.sqrt(st.grid.length), G = E.geoOf(st.grid.length);
-  const inst = E.findAll(st, tech);
-  const grid = st.grid.slice(), givens = st.grid.map(Boolean), struck = Array(G.size).fill(0);
-  const elimSet = new Set(inst.flatMap(s => s.elim.map(e => e.cell * 10 + e.digit)));
-  let sel = -1, spot = 0, hintLv = 0, mistakes = 0, done = false, shown = null, level = 0, errors = new Set();
+// ================= NOTES LESSON: write notes by hand =================
+function notesExercise(root, pos, onDone) {
+  const grid = E.parse(pos.g), G = E.G9, basic = E.basicCandidates(grid);
+  const fits = i => !grid[i] && E.popcount(basic[i]) >= 2 && E.popcount(basic[i]) <= 4;
+  let targets = [];
+  for (const u of G.BOXES) { const c = G.UNITS[u].filter(fits); if (c.length >= 3) { targets = c.slice(0, 3); break; } }
+  if (!targets.length) targets = grid.map((_, i) => i).filter(fits).slice(0, 3);
+  const notes = Array(81).fill(0);
+  let t = 0, mistakes = 0, stage = 'write', errors = new Set();
 
   root.innerHTML = `
     <div class="play-layout">
-      <div class="board-wrap"><div id="tb"></div></div>
+      <div class="board-wrap">${boardFrame('nb', 9, true)}</div>
       <div class="side">
         <div class="coach"><span class="owl">🦉</span><div class="bubble" id="say"></div></div>
-        ${numpad(n, placing ? 'Tap a cell, then its digit.' : 'Tap a cell, then the digit to cross out.')}
+        ${numpad(9, 'Tap digits to add or remove notes.')}
+        <div class="check-row"><button class="btn ghost grow" id="clear">Clear</button><button class="btn primary grow" id="check">Check</button></div>
+      </div>
+    </div>`;
+  const board = new Board($('#nb', root), () => {});
+  const say = h => { $('#say', root).innerHTML = h; };
+  const render = () => board.render({ grid, givens: grid.map(Boolean), notes: stage === 'write' ? notes : basic, selected: stage === 'write' ? targets[t] : -1, errors, peers: true });
+  const ask = () => say(`<p class="beat">Cell ${t + 1} of ${targets.length}</p>What could go in <strong>${G.cellName(targets[t])}</strong>? Its row, column and box are shaded. Add every digit none of them has.`);
+
+  root.querySelectorAll('.key').forEach(k => k.onclick = () => {
+    if (stage !== 'write') return;
+    notes[targets[t]] ^= E.bit(+k.dataset.d); errors = new Set(); sfx('tap'); render();
+  });
+  $('#clear', root).onclick = () => { notes[targets[t]] = 0; render(); };
+  $('#check', root).onclick = () => {
+    if (stage === 'outro') return onDone({ mistakes, hints: 0 });
+    const cell = targets[t], have = notes[cell], want = basic[cell];
+    const extra = E.digitsOf(have & ~want), missing = E.digitsOf(want & ~have);
+    if (extra.length) {
+      const d = extra[0], clash = G.PEERS[cell].find(p => grid[p] === d);
+      const where = G.ROW[clash] === G.ROW[cell] ? 'row' : G.COL[clash] === G.COL[cell] ? 'column' : 'box';
+      mistakes++; sfx('bad'); board.pulse(cell, 'shake'); errors = new Set([clash]); render();
+      return say(`<span class="bad">Not quite.</span> <strong>${d}</strong> can't go here: there's already a ${d} at <strong>${G.cellName(clash)}</strong>, in the same ${where}. Tap ${d} to remove it.`);
+    }
+    if (missing.length) {
+      mistakes++; sfx('bad'); board.pulse(cell, 'shake');
+      return say(`<span class="bad">Almost.</span> You're missing <strong>${list(missing)}</strong>. Nothing in this cell's row, column or box has ${missing.length > 1 ? 'those digits' : 'that digit'} yet, so ${missing.length > 1 ? 'they are' : 'it is'} still possible.`);
+    }
+    sfx('good'); board.pulse(cell, 'pop');
+    if (++t < targets.length) { render(); ask(); return; }
+    stage = 'outro'; render();
+    board.cells.forEach((c, i) => !grid[i] && board.pulse(i, 'pop', (i % 9) + ((i / 9) | 0)));
+    say(`<span class="good">You've got it!</span> Now every empty cell has its notes. Writing them all by hand is slow, so in games you can tap <strong>▦ Fill notes</strong> to do it for you.<br><br>Remember: <strong>removing a note never fills a cell.</strong> It only means "not this one". Next lesson, Pointing Pair, is your first way to remove notes with logic.`);
+    $('#check', root).textContent = 'Finish lesson →';
+    $('#clear', root).classList.add('hidden');
+  };
+  const list = a => (a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a.at(-1));
+  render(); ask();
+}
+
+// ================= TASK: find one move on a real position =================
+// Lesson practice, technique practice, Rush and Today's practice all use this.
+// mystery: the technique isn't named; any valid move a known technique gives is accepted.
+function mountTask(root, { pos, tech, onDone, rush = false, mystery = false, labeled = false, onWrong }) {
+  const placing = E.PLACING.has(tech);
+  const st = posState(pos), n = Math.sqrt(st.grid.length), G = E.geoOf(st.grid.length);
+  const inst = mystery
+    ? E.TECH_ORDER.filter(t => E.PLACING.has(t) === placing).flatMap(t => E.findAll(st, t))
+    : E.findAll(st, tech);
+  const grid = st.grid.slice(), givens = st.grid.map(Boolean), struck = Array(G.size).fill(0);
+  const elimSet = new Set(inst.flatMap(s => s.elim.map(e => e.cell * 10 + e.digit)));
+  let sel = -1, spot = 0, hintLv = 0, mistakes = 0, done = false, shown = null, level = 0, errors = new Set();
+  const title = t => LESSONS[t].title;
+
+  root.innerHTML = `
+    <div class="play-layout">
+      <div class="board-wrap">${boardFrame('tb', n, labeled || mystery)}</div>
+      <div class="side">
+        <div class="coach"><span class="owl">🦉</span><div class="bubble" id="say"></div></div>
+        ${numpad(n, placing ? 'Tap a cell, then its digit.' : 'Tap a cell, then the note to cross out.')}
         <div class="row gap tools-row">
           ${rush ? '' : '<button class="btn ghost grow" id="hint">💡 Hint</button>'}
           <button class="btn primary grow hidden" id="cont">Continue →</button>
@@ -279,12 +406,17 @@ function mountTask(root, { pos, tech, onDone, rush = false, onWrong }) {
     </div>`;
   const board = new Board($('#tb', root), i => tap(i));
   const say = html => { $('#say', root).innerHTML = html; };
-  const intro = `Find a <strong>${L.title}</strong>. ${placing ? 'Place the digit it gives you.' : 'Cross out every note it removes.'}`;
-  say(rush ? `<p class="find">${L.icon} ${L.title}</p>` : intro);
+  const head = rush ? `<p class="find">${LESSONS[tech].icon} ${title(tech)}</p>` : '';
+  const intro = mystery
+    ? `Find the next move. ${placing ? 'A cell can be filled. Which one?' : "No cell can be filled yet, but some notes can be crossed out. Find a pattern you know."} No technique name this time: you choose.`
+    : `Find a <strong>${title(tech)}</strong>. ${placing ? 'Place the digit it gives you.' : 'Cross out every note it removes.'}`;
+  say(rush ? head : intro);
 
   const notes = () => (placing ? null : st.cands.map((m, i) => m & ~struck[i]));
   const render = () => board.render({ grid, givens, notes: notes(), struck: placing ? null : struck, selected: sel, spot, step: shown, level, errors, peers: S.settings.peers });
-  const bestInst = () => inst.slice().sort((a, b) => b.elim.filter(e => E.has(struck[e.cell], e.digit)).length - a.elim.filter(e => E.has(struck[e.cell], e.digit)).length)[0];
+  const progress = s => s.elim.filter(e => E.has(struck[e.cell], e.digit)).length;
+  const bestInst = () => inst.slice().sort((a, b) => progress(b) - progress(a))[0];
+  const flashRegion = s => { shown = s; level = 2; render(); setTimeout(() => { if (!done && shown === s && hintLv < 2) { shown = null; level = 0; render(); } }, 1600); };
 
   function tap(i) {
     if (done) return;
@@ -294,17 +426,30 @@ function mountTask(root, { pos, tech, onDone, rush = false, onWrong }) {
   function wrong(msg, cell) {
     mistakes++; sfx('bad'); board.pulse(cell, 'shake');
     onWrong?.();
-    if (!rush) say(`<span class="bad">Not quite.</span> ${md(msg)}`);
-    else toast(msg.replace(/\*\*/g, ''), 'bad');
+    say(`${head}<span class="bad">Not quite.</span> ${md(msg)}`);
   }
   function success(step) {
     done = true; shown = step; level = 3; errors = new Set();
     sfx('good'); render();
     (step.place.length ? step.place : step.elim).forEach((p, k) => board.pulse(p.cell, 'pop', k));
-    if (rush) { setTimeout(() => onDone({ mistakes, hints: hintLv }), 650); return; }
-    say(`<span class="good">Nailed it!</span> ${md(step.text)}`);
+    if (rush) { setTimeout(() => onDone({ mistakes, hints: hintLv, tech: step.tech }), 650); return; }
+    const named = mystery ? `That was a <strong>${title(step.tech)}</strong> ${LESSONS[step.tech].icon}. ` : '';
+    say(`<span class="good">Nailed it!</span> ${named}${md(step.text)}${legend(step, 3)}`);
     $('#cont', root).classList.remove('hidden');
     $('#hint', root)?.classList.add('hidden');
+  }
+  // Why a crossed-out note is wrong: part of the pattern, out of its reach, or a digit it doesn't touch.
+  function whyNotElim(cell, d) {
+    const pattern = inst.find(s => s.marks.some(m => m.role === 'key' && m.cell === cell && m.digit === d));
+    if (pattern) return `That **${d}** in **${G.cellName(cell)}** is part of the pattern itself. The pattern removes ${d}s from the other cells around it.`;
+    const sameDigit = inst.find(s => s.elim.some(e => e.digit === d));
+    if (sameDigit) {
+      flashRegion(sameDigit);
+      const reach = sameDigit.tech === 'yWing' ? 'cells that see both pincers' : 'the shaded area';
+      return `A ${mystery ? 'pattern' : title(tech)} can remove ${d}s here, but only from ${reach}. **${G.cellName(cell)}** is outside it, so its ${d} stays.`;
+    }
+    const ds = [...new Set(inst.flatMap(s => s.marks.filter(m => m.role === 'key').map(m => m.digit)))].sort();
+    return `The **${d}** in **${G.cellName(cell)}** stays. ${mystery ? 'The pattern here' : `The ${title(tech)} here`} is about ${ds.length ? ds.join(' / ') + ' notes' : 'other digits'}, not ${d}.`;
   }
   function input(d) {
     if (done) return;
@@ -314,57 +459,121 @@ function mountTask(root, { pos, tech, onDone, rush = false, onWrong }) {
       if (hit) { grid[sel] = d; return success(hit); }
       const clash = G.PEERS[sel].find(p => grid[p] === d);
       if (clash !== undefined) { errors = new Set([clash]); render(); setTimeout(() => { errors = new Set(); render(); }, 900); return wrong(`There's already a ${d} at **${G.cellName(clash)}**, in the same ${G.ROW[clash] === G.ROW[sel] ? 'row' : G.COL[clash] === G.COL[sel] ? 'column' : 'box'}.`, sel); }
-      if (st.sol[sel] === d) { sfx('tap'); return say(`True, **${d}** is right there — but you can't prove it with a ${L.title} yet. Look for a different cell.`); }
-      return wrong(`**${d}** doesn't belong in **${G.cellName(sel)}**. Look again.`, sel);
+      if (st.sol[sel] === d) { sfx('tap'); return say(`${head}True, **${d}** is right there. But you can't prove it ${mystery ? 'yet' : `with a ${title(tech)} yet`}. Look for a different cell.`.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')); }
+      const left = E.digitsOf(E.basicCandidates(grid)[sel]);
+      return wrong(`Nothing forces **${d}** into **${G.cellName(sel)}** yet. That cell could still be ${left.join(', ')}.`, sel);
     }
     if (!E.has(st.cands[sel], d)) return toast(`No ${d} note in that cell.`);
     if (E.has(struck[sel], d)) return toast('Already crossed out.');
-    if (!elimSet.has(sel * 10 + d)) return wrong(`The **${d}** in **${G.cellName(sel)}** stays. A ${L.title} doesn't remove it.`, sel);
+    if (!elimSet.has(sel * 10 + d)) return wrong(whyNotElim(sel, d), sel);
     struck[sel] |= E.bit(d); spot = d;
     sfx('place'); board.pulse(sel, 'pop'); render();
     const full = inst.find(s => s.elim.every(e => E.has(struck[e.cell], e.digit)));
     if (full) success(full);
-    else if (!rush) say(`<span class="good">Yes!</span> Keep going: what else does it remove?`);
+    else say(`${head}<span class="good">Yes!</span> Keep going: what else does it remove?`);
   }
   function hint() {
     if (done) return;
     hintLv = Math.min(3, hintLv + 1);
     shown = bestInst();
     level = hintLv === 1 ? 0 : hintLv;
-    say(`<p class="beat">Hint ${hintLv} of 3</p>${md([L.nudge, shown.hint, shown.text][hintLv - 1])}`);
+    const L = LESSONS[shown.tech];
+    const first = mystery ? `Try a **${L.title}** ${L.icon}. ${L.nudge}` : L.nudge;
+    say(`<p class="beat">Hint ${hintLv} of 3</p>${md([first, shown.hint, shown.text][hintLv - 1])}${legend(shown, level)}`);
     render();
   }
 
   root.querySelectorAll('.key').forEach(k => k.onclick = () => input(+k.dataset.d));
   $('#hint', root) && ($('#hint', root).onclick = hint);
-  $('#cont', root).onclick = () => onDone({ mistakes, hints: hintLv });
+  $('#cont', root).onclick = () => onDone({ mistakes, hints: hintLv, tech: shown?.tech || tech });
   active = {
     key(e) {
       if (/^[1-9]$/.test(e.key) && +e.key <= n) input(+e.key);
       else if (e.key === 'h') hint();
-      else if (e.key === 'Enter' && done && !rush) onDone({ mistakes, hints: hintLv });
+      else if (e.key === 'Enter' && done && !rush) $('#cont', root).click();
       else { const m = moveSel(sel, e.key, n); if (m !== null) { e.preventDefault(); tap(m); } }
     },
   };
   render();
 }
 
+// ================= TODAY'S PRACTICE =================
+function screenDaily() {
+  const picks = H.pickDaily(learnedTechs(), S.reviews, today(), 5);
+  const results = [];
+  const draw = () => {
+    clearTimers(); active = null;
+    const k = results.length, t = picks[k];
+    app.innerHTML = `
+      <header class="bar">
+        <a class="icon-btn" href="#/learn" aria-label="Close">✕</a>
+        <div class="progress">${picks.map((_, i) => `<i class="${i < k ? 'full' : i === k ? 'now' : ''}"></i>`).join('')}</div>
+        <span></span>
+      </header>
+      <main class="page lesson"><p class="task-head">Today's practice · <strong>move ${k + 1} of ${picks.length}</strong></p><div id="task"></div>
+      ${k ? '<div class="row center"><button class="btn link" id="stop">Finish for today ✓</button></div>' : ''}</main>`;
+    mountTask($('#task'), {
+      pos: pick(BANK.lessons[t]), tech: t, mystery: true,
+      onDone: r => {
+        const solo = !r.hints && !r.mistakes;
+        S.reviews[r.tech] = H.review(S.reviews[r.tech], solo, today());
+        results.push({ ...r, solo });
+        award(solo ? 6 : 3, solo ? 'on your own' : 'practice');
+        if (results.length >= picks.length) summary(); else draw();
+      },
+    });
+    $('#stop') && ($('#stop').onclick = summary);
+  };
+  const summary = () => {
+    clearTimers(); active = null;
+    const solo = results.filter(r => r.solo).length;
+    const text = `Sudoku Dojo 🥋 Today: ${results.length} move${results.length === 1 ? '' : 's'}, ${solo} on my own · 🔥 ${streakNow()}-day streak\n${results.map(r => (r.solo ? '🟩' : '🟨')).join('')}`;
+    app.innerHTML = `
+      <header class="bar"><a class="icon-btn" href="#/learn">✕</a><div class="bar-title">Today's practice</div><span></span></header>
+      <main class="page lesson"><div class="intro center pop-in">
+        <div class="big-ic">✅</div>
+        <h1>Practised today!</h1>
+        <p class="muted">${results.length} move${results.length === 1 ? '' : 's'} · ${solo} on your own</p>
+        <div class="summary-dots">${results.map(r => `<span title="${LESSONS[r.tech].title}">${r.solo ? '🟩' : '🟨'}</span>`).join('')}</div>
+        <div class="card" style="display:inline-block;margin-bottom:14px">${weekHtml()}<p class="week-meta">${weekCount()} of ${S.settings.goal} days this week · 🔥 ${streakNow()}</p></div>
+        <p class="small muted">🟩 on your own · 🟨 with a hint or a slip. Techniques you needed help with come back sooner.</p>
+        <div class="row gap center"><button class="btn ghost" id="share">Share</button><a class="btn primary" href="#/play">Daily puzzle →</a></div>
+      </div></main>`;
+    sfx('win'); confetti(0.8);
+    $('#share').onclick = () => share(text);
+  };
+  draw();
+}
+
+async function share(text) {
+  const full = `${text}\n${appUrl('../')}`;
+  try {
+    if (navigator.share) await navigator.share({ text: full });
+    else { await navigator.clipboard.writeText(full); toast('Copied. Paste it anywhere.'); }
+  } catch { /* cancelled */ }
+}
+
 // ================= PRACTICE (technique gym) =================
+const gymOf = t => S.gym[t] || { n: 0, ids: [] };
 function screenGym() {
   shell('gym', `
-    <a class="rush-card" href="#/rush">
-      <div><p class="eyebrow">⚡ Speed drill</p><h2>Technique Rush</h2><p>90 seconds. Spot as many techniques as you can. Builds the fast eye.</p></div>
+    <a class="rush-card" href="#/daily" style="background:linear-gradient(135deg,#2F5BD3,#7B5BE0)">
+      <div><p class="eyebrow">🧭 Mixed practice</p><h2>Mystery moves</h2><p>Find the next move without being told which technique. This is what real puzzles feel like.</p></div>
+      <div class="rush-best"><small>Week</small><strong>${weekCount()}</strong></div>
+    </a>
+    <a class="rush-card" href="#/rush" style="margin-top:10px">
+      <div><p class="eyebrow">⚡ Speed drill</p><h2>Technique Rush</h2><p>90 seconds. Best once a technique already feels easy.</p></div>
       <div class="rush-best"><small>Best</small><strong>${S.rushBest}</strong></div>
     </a>
     <h2 class="sec-title">Practice one technique</h2>
-    <p class="muted">Every technique has 30 real puzzle positions where it's the move to find.</p>
+    <p class="muted">Each technique has 30 real puzzle positions where it's the move to find.</p>
     <div class="gym-grid">
       ${E.TECH_ORDER.map(t => {
-        const L = LESSONS[t], b = beltForTech(t), c = S.gym[t] || 0;
+        const L = LESSONS[t], b = beltForTech(t), u = gymOf(t).ids.length;
         return `<a class="gym-card" href="#/gym/${t}" style="--belt:${b.color}">
           <span class="node-ic">${L.icon}</span><strong>${L.title}</strong>
-          <small>${c ? `${c} solved` : L.tagline}</small>
-          <span class="meter"><i style="width:${Math.min(100, (c / 30) * 100)}%"></i></span>
+          <small>${u ? `${u} of 30 done` : L.tagline}</small>
+          <span class="meter"><i style="width:${(u / 30) * 100}%"></i></span>
         </a>`;
       }).join('')}
     </div>`);
@@ -372,27 +581,32 @@ function screenGym() {
 
 function screenGymTech(tech) {
   const L = LESSONS[tech];
-  if (!L) return go('#/gym');
-  const order = shuffle(BANK.lessons[tech]);
+  if (!L || !BANK.lessons[tech]) return go('#/gym');
+  const bank = BANK.lessons[tech], seen = () => new Set(gymOf(tech).ids);
+  // new positions first, then repeats
+  const order = [...shuffle(bank.map((_, i) => i).filter(i => !seen().has(i))), ...shuffle(bank.map((_, i) => i).filter(i => seen().has(i)))];
   let k = 0;
   const draw = () => {
     clearTimers(); active = null;
+    const idx = order[k % order.length];
     app.innerHTML = `
       <header class="bar">
         <a class="icon-btn" href="#/gym" aria-label="Back">←</a>
-        <div class="bar-title">${L.icon} ${L.title} <small>${k + 1} / ${order.length}</small></div>
-        <a class="icon-btn" href="#/lesson/${tech}" title="Re-read the lesson">📖</a>
+        <div class="bar-title">${L.icon} ${L.title} <small>${seen().size} of ${bank.length} done${seen().has(idx) ? ' · repeat' : ''}</small></div>
+        <a class="icon-btn" href="#/lesson/${tech}" aria-label="Re-read the lesson">📖</a>
       </header>
       <main class="page lesson"><div id="task"></div><div class="row center"><button class="btn link" id="skip">Skip this one →</button></div></main>`;
     mountTask($('#task'), {
-      pos: order[k % order.length], tech,
+      pos: bank[idx], tech, labeled: true,
       onDone: r => {
-        S.gym[tech] = (S.gym[tech] || 0) + 1;
+        const g = gymOf(tech);
+        S.gym[tech] = { n: g.n + 1, ids: g.ids.includes(idx) ? g.ids : [...g.ids, idx] };
+        S.reviews[tech] = H.review(S.reviews[tech], !r.hints && !r.mistakes, today());
         award(r.hints ? 2 : 5);
-        k = (k + 1) % order.length; draw();
+        k++; draw();
       },
     });
-    $('#skip').onclick = () => { k = (k + 1) % order.length; draw(); };
+    $('#skip').onclick = () => { k++; draw(); };
   };
   draw();
 }
@@ -427,10 +641,9 @@ function screenRush() {
     };
     const next = () => {
       if (over) return;
-      const t = techs[(Math.random() * techs.length) | 0];
-      const pos = BANK.lessons[t][(Math.random() * BANK.lessons[t].length) | 0];
+      const t = pick(techs);
       mountTask($('#task'), {
-        pos, tech: t, rush: true,
+        pos: pick(BANK.lessons[t]), tech: t, rush: true,
         onDone: () => { score++; combo++; left += 3; if (combo >= 3) sfx('unit'); hud(); next(); },
         onWrong: () => { left -= 2; combo = 0; hud(); },
       });
@@ -477,23 +690,33 @@ function screenPlay() {
   const dailyDone = S.history.some(h => h.daily === today());
   shell('play', `
     ${g ? `<button class="continue" id="cont"><span>▶</span><span><strong>Continue ${g.name}</strong><small>${fmt(g.time)} · ${g.grid.filter((v, i) => v && !g.givens[i]).length} placed</small></span></button>` : ''}
-    <button class="daily" id="daily"><span class="big-ic sm">📅</span><span><strong>Daily puzzle</strong><small>${dailyDone ? 'Done today ✓ — play again for fun' : 'A fresh Medium every day'}</small></span></button>
     <h2 class="sec-title">Classic 9×9</h2>
     <div class="tiers">${TIERS.map(tierCard).join('')}</div>
+    <button class="daily" id="daily" style="margin-top:10px"><span class="big-ic sm">📅</span><span><strong>Daily puzzle</strong><small>${dailyDone ? 'Done today ✓ · play again for fun' : 'A fresh Medium every day'}</small></span></button>
     <h2 class="sec-title">Mini 6×6 <span class="pill">quick</span></h2>
     <p class="muted">Digits 1–6, boxes of 2×3. A full game in 2–5 minutes, great for warming up.</p>
     <div class="tiers">
-      ${tierCard({ id: 'mini-quick', name: 'Mini · Quick', belt: 'white', desc: 'Extra clues. Pure scanning.' })}
-      ${tierCard({ id: 'mini-tricky', name: 'Mini · Tricky', belt: 'yellow', desc: 'Few clues. Needs a real technique.' })}
+      ${tierCard({ id: 'mini-quick', name: 'Mini · Quick', belt: 'white', desc: 'Extra clues. Just look and place.' })}
+      ${tierCard({ id: 'mini-tricky', name: 'Mini · Tricky', belt: 'yellow', desc: 'Fewer clues. May need note-based moves.' })}
     </div>
     <details class="tips"><summary>⚡ How to get faster</summary>
       <ol>
-        <li><strong>Scan by digit, not by cell.</strong> Pick a digit, tap it on the keypad, and every copy lights up. Look for boxes that are missing it.</li>
+        <li><strong>Scan by digit, not by cell.</strong> Tap a digit on the keypad and every copy lights up. Look for boxes that are missing it.</li>
         <li><strong>Start with the digit that's on the board most.</strong> It has the fewest places left, so its singles jump out.</li>
-        <li><strong>Turn on Quick fill</strong> (⚡ in the toolbar). Tap a digit once, then tap cell after cell to drop it, with no back-and-forth.</li>
-        <li><strong>Only write notes when singles run out.</strong> Notes are slow; the first half of most puzzles needs none.</li>
-        <li><strong>Train your eye in Rush.</strong> Ninety seconds a day on Technique Rush makes patterns pop out without thinking.</li>
+        <li><strong>Turn on Quick fill</strong> (⚡ in the toolbar). Tap a digit once, then tap cell after cell to drop it.</li>
+        <li><strong>Only write notes when singles run out.</strong> The first half of most puzzles needs none.</li>
+        <li><strong>Do Today's practice.</strong> Mixed "mystery moves" train you to pick the right technique.</li>
         <li><strong>Keyboard:</strong> 1–9 to place, Shift+digit for a note, arrows to move, N notes, Z undo, H hint, Q quick fill.</li>
+      </ol>
+    </details>
+    <details class="tips"><summary>🧰 What the tools do</summary>
+      <ol>
+        <li><strong>Tap a cell, then a digit</strong> to place it.</li>
+        <li><strong>✎ Notes</strong>: while it's on, digits go in as small notes instead.</li>
+        <li><strong>▦ Fill notes</strong>: writes every possible note for you. Notes you already crossed out stay crossed out.</li>
+        <li><strong>⚡ Quick</strong>: tap a digit first, then tap cells to drop it.</li>
+        <li><strong>💡 Hint</strong>: 1st tap names a technique, 2nd shows where, 3rd explains and can apply it.</li>
+        <li>Small numbers under the keypad digits show how many of that digit are still to place.</li>
       </ol>
     </details>`);
   $('#cont') && ($('#cont').onclick = () => go('#/game'));
@@ -508,7 +731,7 @@ function screenPlay() {
       const list = BANK.tiers[t], seen = new Set(S.solved[t] || []);
       let pool = list.filter(p => !seen.has(p.id));
       if (!pool.length) { S.solved[t] = []; pool = list; }
-      startGame(t, pool[(Math.random() * pool.length) | 0], { name: TIERS.find(x => x.id === t).name }, true);
+      startGame(t, pick(pool), { name: TIERS.find(x => x.id === t).name }, true);
     }
   });
 }
@@ -536,7 +759,7 @@ function screenGame() {
     </header>
     <main class="page game">
       <div class="play-layout">
-        <div class="board-wrap"><div id="gb"></div></div>
+        <div class="board-wrap">${boardFrame('gb', n)}</div>
         <div class="side">
           <div class="coach hidden" id="coach"><span class="owl">🦉</span><div class="bubble"><div id="say"></div><div class="row gap" id="hint-actions"></div></div></div>
           <div class="tools">
@@ -548,6 +771,7 @@ function screenGame() {
             <button class="tool hint" id="hint"><span>💡</span>Hint</button>
           </div>
           ${numpad(n)}
+          <p class="pad-label" id="mode"></p>
         </div>
       </div>
     </main>`;
@@ -561,7 +785,7 @@ function screenGame() {
       const v = g.grid[i];
       if (!v || g.givens[i]) continue;
       if (S.settings.mistakes && v !== sol[i]) e.add(i);
-      for (const p of G.PEERS[i]) if (g.grid[p] === v) { e.add(i); }
+      for (const p of G.PEERS[i]) if (g.grid[p] === v) e.add(i);
     }
     return e;
   };
@@ -578,6 +802,9 @@ function screenGame() {
     $('#notes').classList.toggle('on', notesMode);
     $('#quick').classList.toggle('on', S.settings.quick);
     $('#miss').textContent = S.settings.mistakes ? `${g.mistakes} mistake${g.mistakes === 1 ? '' : 's'}` : `${g.hints} hints`;
+    $('#mode').textContent = S.settings.quick
+      ? (lock ? `⚡ Quick fill: tap cells to ${notesMode ? 'note' : 'place'} ${lock}. Tap ${lock} again to stop.` : '⚡ Quick fill: pick a digit first.')
+      : notesMode ? '✎ Notes on: digits go in as small notes.' : 'Tap a cell, then a digit.';
   };
   const snapshot = () => { g.hist.push({ grid: g.grid.slice(), notes: g.notes.slice() }); if (g.hist.length > 200) g.hist.shift(); };
 
@@ -626,11 +853,15 @@ function screenGame() {
     if (!h) return toast('Nothing to undo');
     g.grid = h.grid; g.notes = h.notes; hush(); save(); sfx('tap'); render();
   }
+  // Keeps the player's own deductions: a cell that already has notes only loses impossible ones.
   function fill() {
     snapshot();
     const c = E.basicCandidates(g.grid);
-    for (let i = 0; i < G.size; i++) if (!g.grid[i]) g.notes[i] = c[i];
-    hush(); save(); sfx('good'); render(); toast('Notes filled in');
+    let kept = 0;
+    for (let i = 0; i < G.size; i++) if (!g.grid[i]) {
+      if (g.notes[i]) { kept++; g.notes[i] &= c[i]; } else g.notes[i] = c[i];
+    }
+    hush(); save(); sfx('good'); render(); toast(kept ? 'Notes filled. Your crossed-out notes stay crossed out.' : 'Notes filled in');
   }
   function hint() {
     if (g.done) return;
@@ -640,7 +871,7 @@ function screenGame() {
     const cands = E.basicCandidates(g.grid);
     for (let i = 0; i < G.size; i++) {
       if (!g.notes[i] || g.grid[i]) continue;
-      if (!E.has(g.notes[i], sol[i])) { sel = i; render(); return say(`Your notes in <strong>${G.cellName(i)}</strong> are missing the right digit. Fix them, or tap "Fill notes" to start fresh.`); }
+      if (!E.has(g.notes[i], sol[i])) { sel = i; render(); return say(`Your notes in <strong>${G.cellName(i)}</strong> are missing the right digit. Fix them, or erase that cell's notes and tap "Fill notes".`); }
       cands[i] &= g.notes[i];
     }
     const step = E.findStep({ grid: g.grid.slice(), cands });
@@ -658,7 +889,7 @@ function screenGame() {
     const acts = hintLv < 3
       ? `<button class="btn ghost sm" id="more">Show more</button><a class="btn link sm" href="#/lesson/${hintStep.tech}">Learn it</a>`
       : `<button class="btn primary sm" id="applyh">Apply it</button><button class="btn ghost sm" id="dismiss">Got it</button>`;
-    say(`<p class="beat">Hint ${hintLv} of 3</p>${body}`, acts);
+    say(`<p class="beat">Hint ${hintLv} of 3</p>${body}${legend(hintStep, hintLv >= 2 ? hintLv : 0)}`, acts);
     $('#more') && ($('#more').onclick = () => { hintLv++; showHint(); });
     $('#dismiss') && ($('#dismiss').onclick = () => { hush(); render(); });
     $('#applyh') && ($('#applyh').onclick = () => {
@@ -713,7 +944,6 @@ function screenGame() {
       const code = e.code.startsWith('Digit') ? +e.code.slice(5) : e.code.startsWith('Numpad') ? +e.code.slice(6) : NaN;
       if (code >= 1 && code <= n) {
         e.preventDefault();
-        if (S.settings.quick && sel >= 0) return apply(sel, code, e.shiftKey || notesMode);
         return sel >= 0 ? apply(sel, code, e.shiftKey || notesMode) : input(code);
       }
       const k = e.key.toLowerCase();
@@ -737,16 +967,29 @@ function screenGame() {
 // ================= ME =================
 function screenMe() {
   const allTiers = [...TIERS, { id: 'mini-quick', name: 'Mini · Quick' }, { id: 'mini-tricky', name: 'Mini · Tricky' }];
-  const games = S.history.filter(h => h.kind === 'game');
+  const wins = Object.values(S.wins).reduce((a, b) => a + b, 0);
   const row = (k, v) => `<div class="kv"><span>${k}</span><strong>${v}</strong></div>`;
   const toggle = (k, label, sub) => `<label class="toggle"><span><strong>${label}</strong><small>${sub}</small></span><input type="checkbox" data-k="${k}" ${S.settings[k] ? 'checked' : ''}><i></i></label>`;
   shell('me', `
     <section class="stats-hero">
-      <div><small>Streak</small><strong>🔥 ${S.streak.n}</strong></div>
+      <div><small>Streak</small><strong>🔥 ${streakNow()}</strong></div>
       <div><small>XP</small><strong>⭐ ${S.xp}</strong></div>
-      <div><small>Puzzles</small><strong>🧩 ${games.length}</strong></div>
+      <div><small>Puzzles</small><strong>🧩 ${wins}</strong></div>
       <div><small>Rush best</small><strong>⚡ ${S.rushBest}</strong></div>
     </section>
+    <h2 class="sec-title">Your week</h2>
+    <div class="card" style="padding:16px">
+      ${weekHtml()}
+      <p class="week-meta" style="margin-top:8px">${weekCount()} of ${S.settings.goal} days ${weekCount() >= S.settings.goal ? '· goal reached 🎉' : ''}</p>
+      <p class="muted small">Your streak allows one rest day a week. Best streak: ${S.bestStreak} · ${S.days.length} practice days in total.</p>
+      <div class="goal-row"><span><strong>Weekly goal</strong></span>
+        <select id="goal">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${n === S.settings.goal ? 'selected' : ''}>${n} day${n > 1 ? 's' : ''} a week</option>`).join('')}</select></div>
+    </div>
+    <h2 class="sec-title">Daily reminder</h2>
+    <div class="card" style="padding:16px">
+      <p class="muted small" style="margin:0 0 8px">Add a repeating 5-minute event to your own calendar. Your calendar sends the reminder. No account needed.</p>
+      <div class="remind-row"><input type="time" id="remindAt" value="${S.settings.remindAt}"><button class="btn primary sm" id="ics">Add to my calendar</button></div>
+    </div>
     <h2 class="sec-title">Belts</h2>
     <div class="belts-row">${BELTS.map(b => `<div class="belt-tile ${b.lessons.every(lessonDone) ? 'got' : ''}"><span class="belt-big sm" style="--belt:${b.color}"></span><small>${b.name.replace(' Belt', '')}</small></div>`).join('')}</div>
     <h2 class="sec-title">Best times</h2>
@@ -762,11 +1005,22 @@ function screenMe() {
       ${toggle('quick', 'Quick fill', 'Pick a digit first, then tap cells')}
       ${toggle('sound', 'Sound & haptics', 'Little pops and chimes')}
     </div>
-    <p class="muted small">Progress is saved in this browser only.</p>
+    <p class="muted small">XP = points for practising. Progress is saved in this browser only.</p>
     <button class="btn link danger" id="reset">Reset all progress</button>`);
   app.querySelectorAll('.toggle input').forEach(inp => inp.onchange = () => {
     S.settings[inp.dataset.k] = inp.checked; fx.sound = S.settings.sound; save(); sfx('tap');
   });
+  $('#goal').onchange = e => { S.settings.goal = +e.target.value; save(); screenMe(); };
+  $('#remindAt').onchange = e => { S.settings.remindAt = e.target.value || '08:00'; save(); };
+  $('#ics').onclick = () => {
+    const ics = H.reminderIcs(S.settings.remindAt, appUrl('#/daily'), today());
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    a.download = 'sudoku-dojo-reminder.ics';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Open the file to add it to your calendar');
+  };
   $('#reset').onclick = () => { if (confirm('Erase all XP, belts, times and saved games?')) { S = fresh(); save(); route(); } };
 }
 
