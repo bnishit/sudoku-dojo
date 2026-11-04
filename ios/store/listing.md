@@ -95,15 +95,15 @@ Other capability answers: unrestricted web access, user-generated content, messa
 
 ## Screenshot captions
 
-Order matches the six planned real captures. Counts are characters; headline words also shown.
+Order matches the six real captures. Counts are characters; headline words also shown.
 
 | # | Headline | Count | One line | Count |
 |---|---|---|---|---|
 | 01 | Learn Sudoku step by step | 25 chars; 5 words | Follow short lessons from White Belt onward. | 44 chars |
-| 02 | See why a move works | 20 chars; 5 words | Get a hint for the puzzle in front of you. | 42 chars |
+| 02 | See why a move works | 20 chars; 5 words | Each lesson shows what every number blocks. | 43 chars |
 | 03 | Put each lesson to work | 23 chars; 5 words | Try your skills on a full puzzle. | 33 chars |
-| 04 | Find your blind spot | 20 chars; 4 words | Review moves you missed once the coach has enough play. | 55 chars |
+| 04 | Find your blind spot | 20 chars; 4 words | Replay moves you missed, with help from your coach. | 51 chars |
 | 05 | Make room for one puzzle | 24 chars; 5 words | Come back to a fresh daily puzzle. | 34 chars |
 | 06 | Build a habit that fits | 23 chars; 5 words | Set a weekly goal and an optional daily reminder. | 49 chars |
 
-Capture review: 01 and 02 are supplied placeholders. 02 currently shows a backup sheet, not a lesson hint. Replace both. 03–06 are missing. Coach capture must use real play with enough evidence; do not draw a card or imply it appears on first launch.
+Capture review: all six are real 1320×2868 iPhone 17 Pro Max simulator captures, light mode, status bar 9:41. 01 shows the White Belt path and Full House next. 02 shows the Hidden Single: Box lesson beam, not a Play hint. 03 shows a Medium game with 7s highlighted and 0 mistakes. 04 shows Your missed moments, move 1 of 11, with a coach prompt. 05 shows the daily puzzle with 6s highlighted. 06 shows 1 of 3 practice days, the Hidden Single in a column blind spot, and daily reminder ON. Claude captured these after four Easy puzzles and eight Medium moves, with no edited data. Human review of the final exports is still required before upload.

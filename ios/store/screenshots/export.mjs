@@ -13,6 +13,14 @@ const originalPlaceholders = [
 ];
 await mkdir(new URL('public/captures/', import.meta.url), {recursive:true});
 await mkdir(new URL('../export/', import.meta.url), {recursive:true});
+const contentNotes = [
+  'Learn path · White Belt · Next: Full House',
+  'Hidden Single: Box lesson · beam drawn · That 4 blocks column 9 in this box',
+  'Medium game in progress · 7s highlighted · 0 mistakes',
+  'Your missed moments replay · move 1 of 11 · coach prompt',
+  'Daily puzzle · 6s highlighted',
+  'Me · 1 of 3 practice days · Hidden Single in a column blind spot · daily reminder ON',
+];
 const captures = [];
 for (let i=0;i<6;i++) {
   const name = `${String(i+1).padStart(2,'0')}.png`;
@@ -23,7 +31,7 @@ for (let i=0;i<6;i++) {
     const suppliedPlaceholder = originalPlaceholders.includes(hash);
     const ready = !suppliedPlaceholder && width===1320 && height===2868;
     await copyFile(new URL(name,raw),new URL(`public/captures/${name}`,import.meta.url));
-    captures.push({src:`/captures/${name}`,ready,status:ready?'Full-size capture · content review pending':suppliedPlaceholder?`Supplied placeholder ${name} · replacement capture pending`:`${width} × ${height} · 1320 × 2868 capture pending`});
+    captures.push({src:`/captures/${name}`,ready,status:ready?`Full-size capture · ${contentNotes[i]} · human review pending`:suppliedPlaceholder?`Supplied placeholder ${name} · replacement capture pending`:`${width} × ${height} · 1320 × 2868 capture pending`});
   } catch(error) {
     if(error.code !== 'ENOENT') throw error;
     captures.push({src:null,ready:false,status:`Capture pending · ${name}`});

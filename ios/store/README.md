@@ -7,7 +7,7 @@ Local draft for iPhone v1, fully free. Pending Claude review. Nothing uploaded o
 - `icon-options/compare.html`: current icon + A/B/C, each at 1024, 180 and 60 CSS pixels, on light and dark. Optional rounded-corner preview; new PNGs are square, 1024×1024, RGB with no alpha. Nishit picks before anyone changes the Xcode icon.
 - `listing.md`: paste-ready fields with character counts, six captions, draft age-rating answers, and Data Not Collected.
 - `walkthrough.html`: real export previews and the exact code that handles supplied or missing captures.
-- `export/`: six numbered 1320×2868 PNGs, preview, and capture status. **All six are drafts, not ready to upload.**
+- `export/`: six numbered 1320×2868 PNGs, preview, and capture status. **Current exports are stale drafts. The 2026-11-04 rerun failed because the sandbox denied listening on 127.0.0.1:5197 (EPERM). Claude must rerun export using the six real captures, then review before upload.**
 
 ## Regenerate exports
 
@@ -21,20 +21,20 @@ One-time install: `npm --prefix ios/store/screenshots ci --cache /tmp/sudoku-bel
 
 Requires Node 20.9+ and an installed Google Chrome. On macOS the default Chrome path is used. Set `CHROME_PATH` to another Chrome or Chromium executable if needed. No Xcode, simulator, browser download, or app build is used. The command starts a local Next.js page, exports through html-to-image in Chrome, writes the PNGs, checks their sizes, and stops its own server. Port 5197 must be free. Generator fonts are local Georgia and Arial, matching the app's serif/sans style without fetching font files. No generated background art is used.
 
-## Replace captures
+## Real captures
 
-Claude takes the real captures on an iPhone 17 Pro Max simulator at **1320×2868**, portrait, light mode. Replace these files, then run the command above:
+Claude replaced all six captures on an iPhone 17 Pro Max simulator at **1320×2868**, portrait, light mode, status bar 9:41. They come from real play: four Easy puzzles and eight Medium moves, with no edited data. Rerun the command above after changing a capture or caption:
 
 | File | Capture | Current input |
 |---|---|---|
-| `raw/01.png` | Learn path | Supplied 414×900 placeholder |
-| `raw/02.png` | Lesson step with hint highlighted | Supplied 414×900 placeholder; currently a dark backup share sheet |
-| `raw/03.png` | Play board mid-game | Missing |
-| `raw/04.png` | Your blind spot coach card | Missing; requires enough real play |
-| `raw/05.png` | Daily puzzle | Missing |
-| `raw/06.png` | Me: week + reminder | Missing |
+| `raw/01.png` | Learn path | Real · White Belt; Next: Full House |
+| `raw/02.png` | Hidden Single: Box lesson | Real · beam drawn; 4 blocks column 9 in this box |
+| `raw/03.png` | Play board mid-game | Real · Medium; 7s highlighted; 0 mistakes |
+| `raw/04.png` | Your missed moments replay | Real · move 1 of 11; coach prompt |
+| `raw/05.png` | Daily puzzle | Real · 6s highlighted |
+| `raw/06.png` | Me: week + blind spot + reminder | Real · 1 of 3 days; Hidden Single in a column; reminder ON |
 
-The generator always reads these six paths. Existing placeholders appear as-is with a DRAFT banner. Missing captures get a clear Capture pending box inside the phone frame. Known placeholder hashes stay flagged even if renamed. A new 1320×2868 image removes its banner, but **size is not proof of correct content**: Claude must still check the screen, light mode, hint highlight, coach evidence, week and reminder. `export/status.json` deliberately keeps `uploadReady: false` for human review.
+The generator always reads these six paths. Existing placeholders appear as-is with a DRAFT banner. Missing captures get a clear Capture pending box inside the phone frame. Known placeholder hashes stay flagged even if renamed. A new 1320×2868 image removes its banner, but **size is not proof of correct content**: Human review must still check the final screen, light mode, lesson beam, replay, blind spot, week and reminder. `export/status.json` deliberately keeps `uploadReady: false` for human review.
 
 No app UI is generated, redrawn, retouched, or assembled from components. The screenshot is fitted inside the skill's provided phone frame without stretching or cropping. Frame corners clip the image as a real phone would. Status bar and home indicator remain part of the real capture. Missing file state is not a simulated app screen.
 

@@ -4,33 +4,33 @@
   "captures": [
     {
       "src": "/captures/01.png",
-      "ready": false,
-      "status": "Supplied placeholder 01.png · replacement capture pending"
+      "ready": true,
+      "status": "Full-size capture · Learn path · White Belt · Next: Full House · human review pending"
     },
     {
       "src": "/captures/02.png",
-      "ready": false,
-      "status": "Supplied placeholder 02.png · replacement capture pending"
+      "ready": true,
+      "status": "Full-size capture · Hidden Single: Box lesson · beam drawn · That 4 blocks column 9 in this box · human review pending"
     },
     {
-      "src": null,
-      "ready": false,
-      "status": "Capture pending · 03.png"
+      "src": "/captures/03.png",
+      "ready": true,
+      "status": "Full-size capture · Medium game in progress · 7s highlighted · 0 mistakes · human review pending"
     },
     {
-      "src": null,
-      "ready": false,
-      "status": "Capture pending · 04.png"
+      "src": "/captures/04.png",
+      "ready": true,
+      "status": "Full-size capture · Your missed moments replay · move 1 of 11 · coach prompt · human review pending"
     },
     {
-      "src": null,
-      "ready": false,
-      "status": "Capture pending · 05.png"
+      "src": "/captures/05.png",
+      "ready": true,
+      "status": "Full-size capture · Daily puzzle · 6s highlighted · human review pending"
     },
     {
-      "src": null,
-      "ready": false,
-      "status": "Capture pending · 06.png"
+      "src": "/captures/06.png",
+      "ready": true,
+      "status": "Full-size capture · Me · 1 of 3 practice days · Hidden Single in a column blind spot · daily reminder ON · human review pending"
     }
   ]
 }

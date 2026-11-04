@@ -14,6 +14,7 @@ struct BeltsWebView: UIViewRepresentable {
         configuration.userContentController.add(context.coordinator, name: "belts")
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -36,12 +37,77 @@ struct BeltsWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Navigation) {
+        coordinator.cancelDialog?()
         uiView.configuration.userContentController.removeScriptMessageHandler(forName: "belts")
     }
 
-    final class Navigation: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    final class Navigation: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let reminders: ReminderNotifications
+        private(set) var cancelDialog: (() -> Void)?
         init(reminders: ReminderNotifications) { self.reminders = reminders }
+
+        func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+            presentDialog(in: webView, message: message, fallback: (), completion: { _ in completionHandler() }) { alert, finish in
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in finish(()) })
+            }
+        }
+
+        func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+            presentDialog(in: webView, message: message, fallback: false, completion: completionHandler) { alert, finish in
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in finish(false) })
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in finish(true) })
+            }
+        }
+
+        func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String,
+                     defaultText: String?, initiatedByFrame frame: WKFrameInfo,
+                     completionHandler: @escaping (String?) -> Void) {
+            presentDialog(in: webView, message: prompt, fallback: Optional<String>.none, completion: completionHandler) { alert, finish in
+                alert.addTextField { $0.text = defaultText }
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in finish(nil) })
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak alert] _ in
+                    finish(alert?.textFields?.first?.text ?? "")
+                })
+            }
+        }
+
+        private func presentDialog<Value>(in webView: WKWebView, message: String, fallback: Value,
+                                          completion: @escaping (Value) -> Void,
+                                          configure: (UIAlertController, @escaping (Value) -> Void) -> Void) {
+            guard cancelDialog == nil, var presenter = webView.window?.rootViewController else {
+                completion(fallback)
+                return
+            }
+            while true {
+                if let presented = presenter.presentedViewController { presenter = presented }
+                else if let navigation = presenter as? UINavigationController, let visible = navigation.visibleViewController { presenter = visible }
+                else if let tabs = presenter as? UITabBarController, let selected = tabs.selectedViewController { presenter = selected }
+                else { break }
+            }
+            guard presenter.viewIfLoaded?.window != nil,
+                  !presenter.isBeingPresented, !presenter.isBeingDismissed,
+                  !(presenter is UIAlertController) else {
+                completion(fallback)
+                return
+            }
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            var finished = false
+            let finish: (Value) -> Void = { [weak self] value in
+                guard !finished else { return }
+                finished = true
+                self?.cancelDialog = nil
+                completion(value)
+            }
+            cancelDialog = { finish(fallback) }
+            configure(alert, finish)
+            presenter.present(alert, animated: true)
+            // UIKit can refuse presentation without calling a presentation completion.
+            DispatchQueue.main.async {
+                if alert.presentingViewController == nil { finish(fallback) }
+            }
+        }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             reminders.ready = true

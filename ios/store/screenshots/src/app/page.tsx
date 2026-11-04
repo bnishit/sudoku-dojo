@@ -5,11 +5,11 @@ import { toPng } from 'html-to-image';
 const W = 1320, H = 2868;
 const SLIDES = [
   ['learn', 'Learn Sudoku step by step', 'Follow short lessons from White Belt onward.', 'Learn path'],
-  ['hint', 'See why a move works', 'Get a hint for the puzzle in front of you.', 'Lesson with a highlighted hint'],
+  ['hint', 'See why a move works', 'Each lesson shows what every number blocks.', 'Hidden Single: Box lesson beam'],
   ['play', 'Put each lesson to work', 'Try your skills on a full puzzle.', 'Play board mid-game'],
-  ['coach', 'Find your blind spot', 'Review moves you missed once the coach has enough play.', 'Your blind spot card'],
+  ['coach', 'Find your blind spot', 'Replay moves you missed, with help from your coach.', 'Your missed moments replay'],
   ['daily', 'Make room for one puzzle', 'Come back to a fresh daily puzzle.', 'Daily puzzle'],
-  ['me', 'Build a habit that fits', 'Set a weekly goal and an optional daily reminder.', 'Me: week and reminder'],
+  ['me', 'Build a habit that fits', 'Set a weekly goal and an optional daily reminder.', 'Me: week, blind spot and reminder'],
 ];
 type Capture = { src: string | null; status: string; ready: boolean };
 declare global { interface Window { exportStore: () => Promise<{name: string; data: string}[]> } }
