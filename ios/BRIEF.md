@@ -64,16 +64,9 @@ These work in a browser but fail or do nothing in a web view:
 - Copy stays warm and never guilt-trips (see `research/habit-research.md`). Example: "Today's puzzle is ready. Five minutes?"
 - This also clears the TASKS.md item "Real push reminders (needs a backend)" for iPhone.
 
-### Phase 4: One-time unlock (StoreKit 2)
-**Blocked until Nishit decides what's free and what's paid.**
-Claude's proposal for that decision: free = White + Yellow Belt lessons, Gentle/Easy play, the daily puzzle and Mini 6×6. One non-consumable purchase unlocks Green, Brown and Black Belts, Medium/Hard/Expert, and practice for those techniques. Price to be decided. The research anchor is Good Sudoku at $4.99.
-- Use StoreKit 2 `Transaction.currentEntitlements` on device. No receipt server.
-- Add "Restore purchase" on Me.
-- Pass the unlock state to JS through the bridge as one boolean. In the web app (no bridge) everything stays free, as it is today.
-- Locked items stay visible with a calm lock, not hidden. Hints are never paywalled (rule 6 in `AGENTS.md`).
-- Add a StoreKit configuration file so purchases can be tested in the simulator.
+### Phase 4: App Store ready
+v1 is **completely free**: no purchases, no locks, no StoreKit. The paid unlock is a later task on `TASKS.md`. Don't build anything for it now.
 
-### Phase 5: App Store ready
 - App icon from `app/icons/`, launch screen in the app's background colour (no white flash in dark mode)
 - Privacy manifest (`PrivacyInfo.xcprivacy`): no tracking, data not collected; declare the `UserDefaults` reason if used
 - Six phone-size screenshots in light mode: a lesson, a hint, the coach, a belt ceremony, the daily puzzle, Me
@@ -89,15 +82,9 @@ Claude's proposal for that decision: free = White + Yellow Belt lessons, Gentle/
 | Web app unchanged | Serve `app/` on localhost and check it at 390×844, light and dark |
 | Haptics, backup, restore, share, sound all work | Tap through Me and a full game |
 | Reminder fires and opens the daily puzzle | Set the reminder 1 minute ahead in the simulator |
-| Unlock, restore and a locked tap all behave | StoreKit test config in the simulator |
 | Light and dark, notch and home bar | iPhone 16 / 17 simulator screenshots |
 
-## Before you start (Nishit)
-Xcode is installed, but the Mac points at the Command Line Tools, so nothing can build yet. Run this once (it asks for your password):
-
-```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-```
-
 ## Not in v1
-iPad layout, widgets, Game Center, iCloud sync, Android, any server.
+Paid unlock, iPad layout, widgets, Game Center, iCloud sync, Android, any server.
+
+Setup checked 2026-11-04: Xcode 27.0 is selected, and the iOS 26.5 and 27.0 simulators are installed.

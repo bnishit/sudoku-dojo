@@ -10,11 +10,10 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 
 ## 🚧 In progress
 
-- [ ] iPhone app: thin native shell around `app/`, offline, native haptics/backup/reminders, one-time unlock. Brief: [`ios/BRIEF.md`](ios/BRIEF.md). Codex builds, Claude reviews each phase in the simulator 🔬 market research · L
-  - [x] Brief written (2026-11-04)
+- [ ] iPhone app v1, **fully free**: thin native shell around `app/`, offline, native haptics/backup/reminders. Brief: [`ios/BRIEF.md`](ios/BRIEF.md). Codex builds, Claude reviews each phase in the simulator 🔬 market research · L
+  - [x] Brief written; Xcode 27 selected (2026-11-04)
   - [ ] Phases 1–3 (shell, iPhone fixes, local reminders)
-  - [ ] Phase 4 unlock: blocked on free vs paid decision
-  - [ ] Phase 5 store prep (no submission)
+  - [ ] Phase 4 store prep (no submission)
 
 ---
 
@@ -27,6 +26,7 @@ Legend: `S` small · `M` medium · `L` large · 🔬 = came from a research repo
 - [ ] Difficulty rating that uses total work + bottlenecks, not just hardest technique 🔬 teaching · L
 - [ ] Real push reminders (needs a push sender/backend) 🔬 habit · L
 - [ ] Custom domain instead of `sudoku-dojo-eight.vercel.app` · S
+- [ ] iPhone paid unlock (after v1 is live and free). Decide free vs paid and the price first. Proposal: free = White + Yellow Belt, Gentle/Easy, daily, Mini 6×6; one purchase unlocks the rest; hints never paid; anchor Good Sudoku $4.99. Build: StoreKit 2 on device, no server, "Restore purchase" on Me 🔬 market research · M
 
 ---
 
