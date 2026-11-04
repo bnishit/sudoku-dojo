@@ -1246,6 +1246,6 @@ function download(name, text, type) {
 
 // ================= boot =================
 route();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if ('serviceWorker' in navigator && ['http:', 'https:'].includes(location.protocol)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
