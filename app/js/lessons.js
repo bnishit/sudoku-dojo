@@ -38,9 +38,8 @@ export const LESSONS = {
   },
   scan: {
     title: 'Scanning Routine', icon: '🔎', tagline: 'Where to look next', kind: 'scan',
-    idea: ["Fast solvers don't stare at the board waiting for something to jump out. They run the same three checks, in order, again and again.", '**1. Nearly full areas.** A row, column or box with one or two gaps is the quickest win.', '**2. One digit at a time.** Pick a digit, light up every copy, and check each box still missing it.', '**3. Follow up.** After every digit you place, look at its row, column and box first. Your new digit often forces another one right next to it.'],
-    analogy: 'Like looking for lost keys: check the usual spots first, then search one room at a time, and when you move something, look right where you moved it.',
-    lookFor: ['Rows, columns or boxes with one or two gaps', 'The digit you see most: tap it to light up every copy', 'After each digit you place: its row, column and box'],
+    idea: ['Look for a row, column or box with one or two gaps.', 'Pick one number. Check each box missing it.', 'After placing a number, check which cells it rules out in other boxes.'],
+    analogy: 'Like keys: check one place at a time.',
     nudge: 'Run the routine: nearly full areas, then one digit, then follow up.',
   },
   notes: {

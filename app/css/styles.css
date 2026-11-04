@@ -367,7 +367,9 @@ strong { font-weight: 800; }
 .search-overlay { position:fixed; inset:0; z-index:100; overflow:auto; background:var(--bg); padding:12px 12px max(12px,env(safe-area-inset-bottom)); }
 .search-view { max-width:440px; margin:auto; --n:9; }
 .search-prompt { min-height:56px; margin:0 0 12px; font-weight:750; font-size:24px; line-height:1.25; }
-.search-board { width:100%; }
+.search-praise::first-letter { font-size:.75em; }
+.search-action { min-height:40px; margin:0 0 12px; }
+.search-board.labeled { width:100%; --bsz:min(calc(100vw - 48px), 422px); }
 .search-feedback { min-height:48px; margin:12px 0; font-size:16px; }
 .search-controls { display:flex; flex-wrap:wrap; gap:8px; }
 .search-controls small { color:var(--muted); }

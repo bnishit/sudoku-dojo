@@ -6,6 +6,7 @@ import * as E from '../app/js/engine.js';
 import * as H from '../app/js/habit.js';
 import * as C from '../app/js/coach.js';
 import { freshSearch, loadSearch, recordSearch, ladderReady, followUpPrompt } from '../app/js/search.js';
+import { LESSONS } from '../app/js/lessons.js';
 import { BANK } from '../app/data/bank.js';
 import { checkSearchInteractions } from './search-check.js';
 
@@ -20,6 +21,9 @@ ok('reminder defaults off and old saves migrate without losing progress or time'
     freshSearch, loadSearch, localStorage: { getItem: () => null }, KEY: 'sudoku-dojo-v1',
   });
   assert.equal(fresh().settings.reminderOn, false);
+  assert.equal(fresh().searchBox.introSeen, false);
+  assert.equal(loadSearch({rung: 2}).introSeen, false);
+  assert.equal(load(JSON.stringify({searchBox: {...freshSearch(), introSeen: true}})).searchBox.introSeen, true);
   const old = { xp: 42, days: ['2026-11-04'], settings: { remindAt: '19:30', sound: false } };
   const migrated = load(JSON.stringify(old));
   assert.equal(migrated.settings.reminderOn, false);
@@ -31,6 +35,60 @@ ok('reminder defaults off and old saves migrate without losing progress or time'
   old.settings.reminderOn = true;
   assert.equal(load(JSON.stringify(old)).settings.reminderOn, true);
   assert.equal(load('{broken').settings.reminderOn, false);
+});
+
+ok('box lesson intro appears once and Start preserves the saved rung', () => {
+  const source = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const root = {}, next = {}, state = {searchBox: {...freshSearch(), rung: 2}};
+  let mounted = 0, saves = 0;
+  const context = { S: state, LESSONS: {hiddenSingleBox: {}}, BANK, E, ladderReady,
+    beltForTech: () => ({}), shuffle: a => a, clearTimers() {}, app: {},
+    $: selector => selector === '#next' ? next : root,
+    mountSearch() { mounted++; }, save() { saves++; },
+  };
+  const lesson = runInNewContext(`${source.slice(source.indexOf('function screenLesson('), source.indexOf('function beltCeremony('))}; screenLesson`, context);
+  lesson('hiddenSingleBox');
+  assert.match(root.innerHTML, /Every box needs each number 1 to 9 once/);
+  assert.equal(mounted, 0);
+  assert.equal(state.searchBox.introSeen, false);
+  next.onclick();
+  assert.equal(state.searchBox.introSeen, true);
+  assert.equal(state.searchBox.rung, 2);
+  assert.equal(saves, 1);
+  assert.equal(mounted, 1);
+  lesson('hiddenSingleBox');
+  assert.equal(mounted, 2, 'reopening skips the intro');
+});
+
+ok('scanning teaches one rule when used and does not repeat it', () => {
+  const source = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const element = () => ({style: {}, classList: {remove() {}}, querySelector: () => button});
+  const button = {}, layout = element(), say = element(), hint = element(), guide = element();
+  const keys = [1,2].map(d => ({dataset: {d}}));
+  const cards = []; let tap, opened = 0;
+  const root = {querySelector: () => layout, querySelectorAll: s => s === '.key' ? keys : [], append: card => cards.push(card)};
+  const state = {grid: Array(81).fill(0)};
+  const context = { E: {...E, newState: () => state,
+      scanPlan: (_, last) => ({mode: last < 0 ? 'area' : 'follow', unit: 0, gaps: 1, step: {}, singles: [{units: [], place: [{cell: last+1, digit: last+2}]}], units: []}),
+      applyStep: (st, step) => { const p=step.place[0]; st.grid[p.cell]=p.digit; }},
+    Board: class {constructor(_, fn) {tap=fn;} render() {} pulse() {}},
+    LESSONS, S: {settings: {}}, document: {createElement: () => ({...element(), remove() {}})},
+    $: selector => ({'#say': say, '#hint': hint, '#guide': guide})[selector],
+    boardFrame() {}, numpad() {}, sfx() {}, cap: s => s, followUpPrompt: () => 'Follow up',
+    openSearch() {opened++;},
+  };
+  const drill = runInNewContext(`${source.slice(source.indexOf('function scanDrill('), source.indexOf('function screenScan('))}; scanDrill`, context);
+  drill(root, {p: '.'.repeat(81), s: '1'.repeat(81)}, 8, () => {}, true);
+  assert.match(cards[0].innerHTML, /one or two gaps/);
+  assert.equal(layout.style.display, 'none');
+  button.onclick(); assert.equal(layout.style.display, '');
+  tap(0); keys[0].onclick();
+  assert.match(cards[1].innerHTML, /After placing a number/);
+  assert.equal(opened, 0, 'read the follow-up rule before the search opens');
+  button.onclick(); assert.match(cards[2].innerHTML, /Pick one number/);
+  button.onclick(); assert.equal(opened, 1);
+  tap(1); keys[1].onclick();
+  assert.equal(cards.length, 3, 'later placements do not repeat rule screens');
 });
 
 ok('mounted ladder: all rungs, calm errors, isolated board and empty-cell regression', checkSearchInteractions);

@@ -2,7 +2,7 @@ import * as E from './engine.js';
 import { Board } from './board.js';
 
 // One scale: six teaching rungs, then the existing beams / start / solo fade.
-export const freshSearch = () => ({ rung: 1, positions: [], puzzle: false, solo: [], puzzleIds: [], nextDay: null, checkedDay: null, legendSeen: false });
+export const freshSearch = () => ({ rung: 1, positions: [], puzzle: false, solo: [], puzzleIds: [], nextDay: null, checkedDay: null, introSeen: false, legendSeen: false });
 export function loadSearch(value) {
   const p = { ...freshSearch(), ...value };
   p.rung = Number.isInteger(value?.rung) && value.rung >= 1 && value.rung <= 9 ? value.rung
@@ -67,7 +67,7 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
   let checked = new Set(), dirty = hinted && rung >= 8, hints = 0, message = '', done = false, deadSeen = false, sheet = false;
   const firstLegend = rung === 1 && !progress.legendSeen;
   if (firstLegend) { progress = { ...loadSearch(progress), legendSeen: true }; persist(progress); }
-  root.innerHTML = `<section class="search-view"><p class="search-prompt" aria-live="polite"></p><div class="search-board"><div class="search-grid"></div></div><p class="search-feedback" aria-live="polite"></p><div class="search-controls"></div><div class="search-footer"><button class="btn link sm" data-help>Help</button></div><div class="search-sheet" hidden></div></section>`;
+  root.innerHTML = `<section class="search-view"><p class="search-prompt" aria-live="polite"></p><p class="search-action" aria-live="polite"></p><div class="search-board board-frame labeled"><div class="col-labels">${Array.from({length:9},(_,i)=>`<span>${i+1}</span>`).join('')}</div><div class="row-labels">${Array.from({length:9},(_,i)=>`<span>${i+1}</span>`).join('')}</div><div class="search-grid"></div></div><p class="search-feedback" aria-live="polite"></p><div class="search-controls"></div><div class="search-footer"><button class="btn link sm" data-help>Help</button></div><div class="search-sheet" hidden></div></section>`;
   const q = s => root.querySelector(s), controls = q('.search-controls');
   const facts = () => unit < 0 ? null : E.searchFacts(grid, d, unit);
   const blocked = () => new Set((facts()?.blockers || []).filter(b => checked.has(b.cell)).flatMap(b => b.cells));
@@ -85,7 +85,7 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
   function finish(place) {
     done = true;
     persist(recordSearch(progress, { position, clean: !dirty && (rung !== 5 || deadSeen), placed: place, completed: true, fullPuzzle, puzzleId, day: new Date().toLocaleDateString('en-CA'), rung }));
-    message = place ? `Yes. Only one spot fits ${d}.` : message;
+    message = place ? `Found it! The ${d} goes here.` : message;
     draw();
   }
   const board = new Board(q('.search-grid'), i => {
@@ -115,7 +115,10 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
     }
     if (!ready() && !solo && rung !== 8) return fail(`Check the glowing ${d}s first.`);
     if (facts().remaining.length !== 1) return fail('More than one spot fits. Try another box.');
-    if (!facts().remaining.includes(i)) return fail(`A placed ${d} blocks that cell.`);
+    if (!facts().remaining.includes(i)) {
+      const beam = !solo && rung !== 8 ? facts().blockers.find(b => b.cells.includes(i))?.beams.find(b => G.UNITS[b.unit].includes(i)) : null;
+      return fail(beam ? `The ${G.isRow(beam.unit) ? 'row' : 'column'} ${G.isRow(beam.unit) ? G.ROW[i]+1 : G.COL[i]+1} stripe rules out this cell for ${d}.` : `A placed ${d} blocks that cell.`);
+    }
     finish(true);
   });
   function draw() {
@@ -128,20 +131,22 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
     board.el.classList.add('search-view-grid');
     let targets = !d && !done && rung !== 4 ? grid.flatMap((v,i)=>v && grid.filter(n=>n===v).length<9 ? [i] : []) : [];
     if (!done && d) targets = unit < 0 ? boxes.filter(u => !E.searchFacts(grid,d,u).present).flatMap(u => G.UNITS[u].filter(i => !grid[i]))
-      : independent ? G.UNITS[unit].filter(i => !grid[i]) : ready() ? (f.remaining.length === 1 ? f.remaining : []) : pending().map(b => b.cell);
+      : independent || ready() ? [] : pending().map(b => b.cell);
     if (rung === 1) targets = targets.slice(0, 1);
     // Reapply after Board.render, including when its render cache skips a cell.
-    board.cells.forEach((c,i) => { c.el.classList.toggle('search-tap', targets.includes(i)); c.el.classList.toggle('search-dim', !targets.includes(i)); c.el.classList.toggle('search-choice', unit < 0 && targets.includes(i)); });
+    board.cells.forEach((c,i) => { c.el.classList.toggle('search-tap', targets.includes(i)); c.el.classList.toggle('search-dim', !targets.includes(i) && !(unit >= 0 && G.UNITS[unit].includes(i) && !grid[i])); c.el.classList.toggle('search-choice', unit < 0 && targets.includes(i)); });
     let instruction = !d ? 'Pick a digit.' : unit < 0 ? `Tap a box missing ${d}.` : ready() ? `Tap the one spot for ${d}.` : `Tap a glowing ${d}.`;
-    if (rung === 1 && !done) { const b = pending()[0]; if (b) instruction = `Tap the ${d} in row ${G.ROW[b.cell] + 1}.`; }
+    if (rung === 1 && !done) { const b = pending()[0]; if (b) instruction = `Tap the ${d} in row ${G.ROW[b.cell] + 1} to see what it blocks.`; }
     if (rung === 4 && !d) {
       const n = Array.from({length:9},(_,i)=>i+1).filter(n => grid.filter(v=>v===n).length < 9).sort((a,b)=>grid.filter(v=>v===b).length-grid.filter(v=>v===a).length)[0];
       instruction = `Try ${n}: it has the most placed.`;
     }
-    if (done) instruction = 'Continue to the next search.';
     if (f && ready() && f.remaining.length > 1 && !done) instruction = 'Try another box.';
-    q('.search-prompt').textContent = (solo || (rung === 8 && d)) && !hints && !done ? '' : instruction;
-    q('.search-feedback').textContent = message;
+    const praise = /^(Yes\.|Found it!)/.test(message);
+    q('.search-prompt').textContent = praise ? `✓ ${message}` : d ? `Where can the ${d} go in ${unit < 0 ? 'a' : 'this'} box?` : 'Which number can we place?';
+    q('.search-prompt').classList.toggle('search-praise', praise);
+    q('.search-action').textContent = done || ((solo || (rung === 8 && d)) && !hints) ? '' : instruction;
+    q('.search-feedback').textContent = praise ? '' : message;
     controls.innerHTML = '';
     const button = (text, fn, parent = controls, primary = true) => { const b = document.createElement('button'); b.className = primary ? 'btn primary' : 'btn ghost'; b.textContent = text; b.onclick = fn; parent.append(b); return b; };
     if (firstLegend && !done) { const legend = document.createElement('small'); legend.textContent = 'A beam shows a row or column. Stripes mean this digit cannot go there.'; controls.append(legend); }

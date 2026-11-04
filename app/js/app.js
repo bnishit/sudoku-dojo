@@ -262,7 +262,7 @@ function screenLesson(tech) {
   const belt = beltForTech(tech), isNotes = L.kind === 'notes', isScan = L.kind === 'scan';
   const bank = BANK.lessons[isNotes ? 'pointing' : isScan ? 'fullHouse' : tech], placing = E.PLACING.has(tech);
   const practice = shuffle(bank.slice(1).filter(p => tech !== 'hiddenSingleBox' || ladderReady(E.parse(p.g)))).slice(0, tech === 'hiddenSingleBox' ? bank.length : 3), results = [];
-  let phase = tech === 'hiddenSingleBox' ? 'practice' : 'intro', beat = 0, pi = 0;
+  let phase = tech === 'hiddenSingleBox' && S.searchBox.introSeen ? 'practice' : isScan ? 'scan' : 'intro', beat = 0, pi = 0;
   const steps = tech === 'hiddenSingleBox' ? ['r1','r2','r3','r4','r5','r6'] : isNotes ? ['intro', 'notes'] : isScan ? ['intro', 'scan'] : ['intro', 'watch', 'p0', 'p1', 'p2'];
 
   const draw = () => {
@@ -277,7 +277,10 @@ function screenLesson(tech) {
       </header>
       <main class="page lesson" id="lp"></main>`;
     const root = $('#lp');
-    if (phase === 'intro') {
+    if (phase === 'intro' && tech === 'hiddenSingleBox') {
+      root.innerHTML = `<div class="intro pop-in"><h1>Every box needs each number 1 to 9 once.</h1><p>We'll find where a missing number goes, one small step at a time.</p><button class="btn primary wide" id="next">Start</button></div>`;
+      $('#next').onclick = () => { S.searchBox.introSeen = true; save(); phase = 'practice'; draw(); };
+    } else if (phase === 'intro') {
       root.innerHTML = `
         <div class="intro pop-in">
           <div class="big-ic">${L.icon}</div>
@@ -295,7 +298,7 @@ function screenLesson(tech) {
       notesExercise(root, bank[0], r => { results.push(r); phase = 'done'; finish(); draw(); });
     } else if (phase === 'scan') {
       root.innerHTML = `<p class="task-head">Place <strong>8 digits</strong> using the routine. No timer.</p><div id="task"></div>`;
-      scanDrill($('#task'), pick(BANK.tiers.gentle), 8, r => { results.push(r); phase = 'done'; finish(); draw(); });
+      scanDrill($('#task'), pick(BANK.tiers.gentle), 8, r => { results.push(r); phase = 'done'; finish(); draw(); }, true);
     } else if (phase === 'watch') {
       const st = posState(bank[0]);
       const step = E.findAll(st, tech)[0];
@@ -432,7 +435,8 @@ function notesExercise(root, pos, onDone) {
 // ================= SCANNING ROUTINE: place digits in the order a fast solver looks =================
 // Any provable digit is accepted; the coach just says where the routine would look next.
 // Help fades: the first few prompts name the exact row or digit, later ones only name the step.
-function scanDrill(root, puz, goal, onDone) {
+function scanDrill(root, puz, goal, onDone, teach = false) {
+  const taught = new Set();
   const st = E.newState(E.parse(puz.p)), sol = E.parse(puz.s), givens = st.grid.map(Boolean), G = E.G9;
   let sel = -1, spot = 0, last = -1, placed = 0, mistakes = 0, hints = 0, hintLv = 0, plan, shown = null, level = 0, errors = new Set();
   root.innerHTML = `
@@ -463,7 +467,18 @@ function scanDrill(root, puz, goal, onDone) {
     plan = E.scanPlan(st, last);
     if (!plan || placed >= goal) return onDone({ mistakes, hints, placed });
     prompt(); render();
-    if (last >= 0) { $('#guide', root).classList.remove('hidden'); guide(); }
+    const resume = () => { if (last >= 0) { $('#guide', root).classList.remove('hidden'); teachRule('digit', guide); } };
+    teachRule(last >= 0 ? 'follow' : plan.mode, resume);
+  };
+  const teachRule = (rule, resume) => {
+    if (!teach || taught.has(rule) || !['area','digit','follow'].includes(rule)) return resume();
+    taught.add(rule);
+    const ruleIndex = {area: 0, digit: 1, follow: 2}[rule];
+    const layout = root.querySelector('.play-layout'), card = document.createElement('div');
+    layout.style.display = 'none'; card.className = 'intro pop-in';
+    card.innerHTML = `<h1>${LESSONS.scan.idea[ruleIndex]}</h1><p>${LESSONS.scan.analogy}</p><button class="btn primary wide">Start</button>`;
+    root.append(card);
+    card.querySelector('button').onclick = () => { card.remove(); layout.style.display = ''; resume(); };
   };
   const wrong = (msg, cell) => { mistakes++; sfx('bad'); board.pulse(cell, 'shake'); say(`<span class="bad">Not quite.</span> ${md(msg)}`); };
   const cap = s => s[0].toUpperCase() + s.slice(1);
