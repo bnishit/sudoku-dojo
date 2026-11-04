@@ -10,6 +10,8 @@
 		A10000000000000000000002 /* BeltsWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002; };
 		A10000000000000000000003 /* BundleSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003; };
 		A10000000000000000000004 /* app in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004; };
+		A10000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006; };
+		A10000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +20,9 @@
 		A20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleSchemeHandler.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* app */ = {isa = PBXFileReference; lastKnownFileType = folder; name = app; path = ../app; sourceTree = "<group>"; };
 		A20000000000000000000005 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SudokuBelts.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A20000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,7 +37,7 @@
 		};
 		A40000000000000000000002 = {
 			isa = PBXGroup;
-			children = (A20000000000000000000001, A20000000000000000000002, A20000000000000000000003);
+			children = (A20000000000000000000001, A20000000000000000000002, A20000000000000000000003, A20000000000000000000006, A20000000000000000000007, A20000000000000000000008);
 			path = SudokuBelts;
 			sourceTree = "<group>";
 		};
@@ -71,7 +76,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A70000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000004, A10000000000000000000006, A10000000000000000000007); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -108,12 +113,13 @@
 		B20000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = SudokuBelts/Info.plist;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sudoku Belts";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nishitbhatt.sudokubelts;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -129,12 +135,13 @@
 		B20000000000000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = SudokuBelts/Info.plist;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sudoku Belts";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nishitbhatt.sudokubelts;
 				PRODUCT_NAME = "$(TARGET_NAME)";
