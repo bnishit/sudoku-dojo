@@ -78,6 +78,7 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
     const f = E.searchFacts(grid, d, u);
     if (f.present) return fail(`This box already has a ${d}.`);
     if (!f.remaining.length) return fail('No spots remain. Check the puzzle for a conflict.');
+    if ((rung === 3 || rung === 4) && f.remaining.length !== 1) return fail('Try a glowing box. It has one spot left.');
     unit = u; checked.clear(); message = `Yes. This box is missing ${d}.`;
     if (rung === 7) checked = new Set(f.blockers.map(b => b.cell));
     draw();
@@ -130,7 +131,7 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
     board.render({ grid: display, givens: grid.map(Boolean), step, level: 2, peers: false });
     board.el.classList.add('search-view-grid');
     let targets = !d && !done && rung !== 4 ? grid.flatMap((v,i)=>v && grid.filter(n=>n===v).length<9 ? [i] : []) : [];
-    if (!done && d) targets = unit < 0 ? boxes.filter(u => !E.searchFacts(grid,d,u).present).flatMap(u => G.UNITS[u].filter(i => !grid[i]))
+    if (!done && d) targets = unit < 0 ? boxes.filter(u => { const f = E.searchFacts(grid,d,u); return !f.present && (!(rung === 3 || rung === 4) || f.remaining.length === 1); }).flatMap(u => G.UNITS[u].filter(i => !grid[i]))
       : independent || ready() ? [] : pending().map(b => b.cell);
     if (rung === 1) targets = targets.slice(0, 1);
     // Reapply after Board.render, including when its render cache skips a cell.
@@ -141,16 +142,19 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
       const n = Array.from({length:9},(_,i)=>i+1).filter(n => grid.filter(v=>v===n).length < 9).sort((a,b)=>grid.filter(v=>v===b).length-grid.filter(v=>v===a).length)[0];
       instruction = `Try ${n}: it has the most placed.`;
     }
-    if (f && ready() && f.remaining.length > 1 && !done) instruction = 'Try another box.';
-    const praise = /^(Yes\.|Found it!)/.test(message);
-    q('.search-prompt').textContent = praise ? `✓ ${message}` : d ? `Where can the ${d} go in ${unit < 0 ? 'a' : 'this'} box?` : 'Which number can we place?';
+    const deadEnd = f && ready() && f.remaining.length > 1 && !done;
+    if (deadEnd && rung === 5 && f.remaining.length === 2) deadSeen = true;
+    const praise = !deadEnd && /^(Yes\.|Found it!)/.test(message);
+    q('.search-prompt').textContent = deadEnd ? `${f.remaining.length === 2 ? 'Two' : f.remaining.length} spots left. Not ready yet.` : praise ? `✓ ${message}` : d ? `Where can the ${d} go in ${unit < 0 ? 'a' : 'this'} box?` : 'Which number can we place?';
     q('.search-prompt').classList.toggle('search-praise', praise);
-    q('.search-action').textContent = done || ((solo || (rung === 8 && d)) && !hints) ? '' : instruction;
-    q('.search-feedback').textContent = praise ? '' : message;
+    q('.search-action').textContent = done || deadEnd || ((solo || (rung === 8 && d)) && !hints) ? '' : instruction;
+    if (rung === 6 && !done && !d && !progress.positions?.length) q('.search-action').textContent = 'Tap any number on the board to hunt for it.';
+    q('.search-feedback').textContent = deadEnd ? 'That is normal. Try another box.' : praise ? '' : message;
     controls.innerHTML = '';
     const button = (text, fn, parent = controls, primary = true) => { const b = document.createElement('button'); b.className = primary ? 'btn primary' : 'btn ghost'; b.textContent = text; b.onclick = fn; parent.append(b); return b; };
     if (firstLegend && !done) { const legend = document.createElement('small'); legend.textContent = 'A beam shows a row or column. Stripes mean this digit cannot go there.'; controls.append(legend); }
     if (!d && !done && rung === 4) {
+      const caption = document.createElement('small'); caption.textContent = 'How many are already placed'; controls.append(caption);
       const digits = document.createElement('div'); digits.className = 'search-digits'; controls.append(digits);
       for (let n=1;n<=9;n++) { const count=grid.filter(v=>v===n).length; if(count===9) continue;
         button(`${n} · ${count}`, () => { d=n; message=`Yes. Look for ${n}.`; unit=-1; draw(); }, digits, false);
@@ -161,8 +165,6 @@ export function mountSearch(root, { grid, progress, persist, onPlace, onExit, on
       onPlace?.({cell:f.remaining[0],digit:d,mistakes:0,hints:hints + Number(dirty || rung < 6 || rung === 7)});
     });
     else if (f && ready() && f.remaining.length > 1) {
-      if (rung === 5 && !deadSeen && f.remaining.length === 2) { deadSeen = true; message = 'Two spots. Not ready yet. That is normal. Try another box.'; q('.search-feedback').textContent = message; }
-      else if (!message) q('.search-feedback').textContent = `${f.remaining.length} spots. Not ready yet. Try another box.`;
       button(searched >= 1 && rung >= 4 ? 'Try another digit' : 'Try another box', () => { if (++searched >= 2 && rung >= 4) { d=0; searched=0; } unit=-1; checked.clear(); message='Yes. Keep looking.'; draw(); });
     }
     else if (!start && !d) q('.search-feedback').textContent = 'No box is ready. Open Help to skip this search.';

@@ -38,8 +38,8 @@ export const LESSONS = {
   },
   scan: {
     title: 'Scanning Routine', icon: '🔎', tagline: 'Where to look next', kind: 'scan',
-    idea: ['Look for a row, column or box with one or two gaps.', 'Pick one number. Check each box missing it.', 'After placing a number, check which cells it rules out in other boxes.'],
-    analogy: 'Like keys: check one place at a time.',
+    idea: ['Look for a row, column or box that is nearly full.', 'Pick one number. Check each box missing it.', 'After placing a number, check which cells it rules out in other boxes.'],
+    analogy: 'Like looking for lost keys: check one place at a time.',
     nudge: 'Run the routine: nearly full areas, then one digit, then follow up.',
   },
   notes: {

@@ -458,7 +458,10 @@ function scanDrill(root, puz, goal, onDone, teach = false) {
     const back = plan.quiet ? `Nothing new near your ${d}. <strong>Back to step 1.</strong> ` : '';
     shown = null; level = 0;
     if (last >= 0) return say(followUpPrompt(st.grid, last));
-    if (plan.mode === 'area') return say(`${back}<strong>Step 1 · Nearly full areas.</strong> ${specific ? `<strong>${cap(G.unitName(plan.unit))}</strong> has only ${plan.gaps} empty cell${plan.gaps > 1 ? 's' : ''}. Which digit fits?` : 'Find a row, column or box with just one or two gaps.'}`);
+    if (plan.mode === 'area') {
+      if (specific) { shown = { units: [plan.unit] }; level = 2; }
+      return say(`${back}<strong>Step 1 · Nearly full areas.</strong> ${specific ? `<strong>${cap(G.unitName(plan.unit))}</strong> has only ${plan.gaps} empty cell${plan.gaps > 1 ? 's' : ''}. Which digit fits?` : 'Find a row, column or box that is nearly full.'}`);
+    }
     if (plan.mode === 'digit') return say(`${back}<strong>Step 2 · One digit at a time.</strong> ${specific ? `Try the <strong>${plan.digit}s</strong>: tap ${plan.digit} on the keypad to light them up, then find a box missing a ${plan.digit} with only one spot left.` : 'Pick the digit you see most. Light it up and check every box that is missing it.'}`);
     say(`${back}<strong>Crowded cell.</strong> No quick scan works here. Find a cell whose row, column and box already hold eight different digits.`);
   };

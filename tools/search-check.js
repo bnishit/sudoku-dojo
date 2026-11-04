@@ -86,6 +86,53 @@ export function checkSearchInteractions() {
         assert.equal(result.mistakes,0,'help never costs stars'); assert.ok(result.hints>0);
       }
     }
+    const mount = (grid, rung, positions = []) => {
+      const root = new Element();
+      root.parts = Object.fromEntries(['.search-controls','.search-grid','.search-prompt','.search-action','.search-feedback','[data-help]','.search-sheet'].map(s=>[s,new Element()]));
+      mountSearch(root, {grid, progress: {...freshSearch(), rung, positions}, persist() {}});
+      const board = root.parts['.search-grid'];
+      return {root, board, tap: i => board.listeners.pointerdown({target:board.children[i],preventDefault(){}})};
+    };
+    const boxes = Array.from({length:9}, (_,i)=>i+18);
+    for (const pos of BANK.lessons.hiddenSingleBox) {
+      const g = E.parse(pos.g);
+      for (const rung of [3,4]) {
+        const {root, board, tap} = mount(g, rung);
+        if (rung === 4) {
+          assert.ok(root.parts['.search-controls'].children.some(c=>c.textContent==='How many are already placed'));
+          root.parts['.search-controls'].children.find(c=>c.className==='search-digits').children[0].onclick();
+        }
+        const d = +root.parts['.search-prompt'].textContent.match(/\d/)[0];
+        for (const u of boxes) {
+          const f = E.searchFacts(g,d,u);
+          for (const i of E.G9.UNITS[u].filter(i=>!g[i]))
+            assert.equal(board.children[i].className.includes('search-tap'), !f.present && f.remaining.length===1, `R${rung} box choice`);
+        }
+        const dead = boxes.map(u=>E.searchFacts(g,d,u)).find(f=>!f.present && f.remaining.length>1);
+        if (dead) {
+          tap(dead.remaining[0]);
+          assert.equal(root.parts['.search-feedback'].textContent,'Try a glowing box. It has one spot left.');
+          assert.ok(!root.parts['.search-controls'].children.some(c=>c.textContent==='Try another box'));
+        }
+      }
+    }
+    const first = mount(grid, 6);
+    assert.equal(first.root.parts['.search-action'].textContent,'Tap any number on the board to hunt for it.');
+    first.tap(grid.findIndex(Boolean));
+    assert.equal(first.root.parts['.search-action'].textContent,'');
+    assert.equal(mount(grid,6,['previous-clean-rep']).root.parts['.search-action'].textContent,'');
+    const deadRep = mount(grid,5);
+    const deadStart = E.rankSearchStarts(grid,boxes).find(s=>s.remaining.length===2 && E.rankSearchStarts(grid,boxes).some(t=>t.digit===s.digit && t.remaining.length===1));
+    for (const b of deadStart.blockers) deadRep.tap(b.cell);
+    assert.equal(deadRep.root.parts['.search-prompt'].textContent,'Two spots left. Not ready yet.');
+    assert.equal(deadRep.root.parts['.search-feedback'].textContent,'That is normal. Try another box.');
+    assert.ok(!deadRep.root.parts['.search-prompt'].className.includes('search-praise'));
+    deadRep.root.parts['.search-controls'].children.find(c=>c.textContent==='Try another box').onclick();
+    for (const u of boxes) {
+      const f = E.searchFacts(grid,deadStart.digit,u);
+      for (const i of E.G9.UNITS[u].filter(i=>!grid[i]))
+        assert.equal(deadRep.board.children[i].className.includes('search-tap'),!f.present,'R5 retains any missing box');
+    }
     // Preserve the simulator regression: choose digit 3, then both visibly empty boxes.
     for(const options of [{},{fullPuzzle:true,hinted:true},{digit:3,supplied:true}]) {
       const reported=E.parse('35......21.6....3....73.1.....325....2..6..7...41.8.....3.94....8.....474......29');
@@ -94,7 +141,8 @@ export function checkSearchInteractions() {
       root.parts['.search-controls'].children.find(c=>c.className==='search-digits').children.find(c=>c.textContent.startsWith('3 ·')).onclick();
       const board=root.parts['.search-grid'];
       board.listeners.pointerdown({target:board.children[33],preventDefault(){}});
-      assert.match(root.parts['.search-prompt'].textContent,/missing 3/);
+      assert.equal(root.parts['.search-feedback'].textContent,'Try a glowing box. It has one spot left.');
+      assert.notEqual(root.parts['.search-feedback'].textContent,'Look for a placed 3.');
     }
   } finally {
     if(originalDocument===undefined) delete globalThis.document; else globalThis.document=originalDocument;

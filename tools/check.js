@@ -65,13 +65,13 @@ ok('scanning teaches one rule when used and does not repeat it', () => {
   const element = () => ({style: {}, classList: {remove() {}}, querySelector: () => button});
   const button = {}, layout = element(), say = element(), hint = element(), guide = element();
   const keys = [1,2].map(d => ({dataset: {d}}));
-  const cards = []; let tap, opened = 0;
+  const cards = []; let tap, rendered, opened = 0;
   const root = {querySelector: () => layout, querySelectorAll: s => s === '.key' ? keys : [], append: card => cards.push(card)};
   const state = {grid: Array(81).fill(0)};
   const context = { E: {...E, newState: () => state,
       scanPlan: (_, last) => ({mode: last < 0 ? 'area' : 'follow', unit: 0, gaps: 1, step: {}, singles: [{units: [], place: [{cell: last+1, digit: last+2}]}], units: []}),
       applyStep: (st, step) => { const p=step.place[0]; st.grid[p.cell]=p.digit; }},
-    Board: class {constructor(_, fn) {tap=fn;} render() {} pulse() {}},
+    Board: class {constructor(_, fn) {tap=fn;} render(v) {rendered=v;} pulse() {}},
     LESSONS, S: {settings: {}}, document: {createElement: () => ({...element(), remove() {}})},
     $: selector => ({'#say': say, '#hint': hint, '#guide': guide})[selector],
     boardFrame() {}, numpad() {}, sfx() {}, cap: s => s, followUpPrompt: () => 'Follow up',
@@ -79,7 +79,10 @@ ok('scanning teaches one rule when used and does not repeat it', () => {
   };
   const drill = runInNewContext(`${source.slice(source.indexOf('function scanDrill('), source.indexOf('function screenScan('))}; scanDrill`, context);
   drill(root, {p: '.'.repeat(81), s: '1'.repeat(81)}, 8, () => {}, true);
-  assert.match(cards[0].innerHTML, /one or two gaps/);
+  assert.match(cards[0].innerHTML, /that is nearly full/);
+  assert.match(cards[0].innerHTML, /Like looking for lost keys/);
+  assert.deepEqual([...rendered.step.units], [0]);
+  assert.equal(rendered.level, 2);
   assert.equal(layout.style.display, 'none');
   button.onclick(); assert.equal(layout.style.display, '');
   tap(0); keys[0].onclick();

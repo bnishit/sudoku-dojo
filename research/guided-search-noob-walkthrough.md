@@ -1,6 +1,6 @@
 # Hidden Single: Box — a beginner's skill ladder
 
-A new player starts by tapping one placed digit. Digit choices and dead ends wait until the player has practised the smaller steps. This is local work, not a release. Claude completed R1 and R2 as a first-time player in the iPhone simulator without bugs. These six beginner-copy and cue changes are local; a fresh native review is still needed. No measured player count is available.
+A new player starts by tapping one placed digit. Digit choices and dead ends wait until the player has practised the smaller steps. This is local work, not a release. Claude completed R1–R6 as a first-time player at 390×844, through “Hidden Single: Box learned!”, and checked the Scanning Routine intro. Five follow-up fixes are local; a fresh browser/native review is still needed. No measured player count is available.
 
 Each rung needs two clean reps on distinct real bank positions. A correction or Show me stops that rep from counting; it never takes away prior progress or stars. Skip offers a fresh lesson position, or returns from a Play or Scanning search. Reload resumes the saved rung. The lesson ends after two solo reps. Play and Scanning read the same saved rung.
 
@@ -10,7 +10,7 @@ In the examples below, 4 is the chosen digit. The actual digit and row come from
 
 The box lesson opens once with “Every box needs each number 1 to 9 once.” / “We'll find where a missing number goes, one small step at a time.” / **Start**. Start saves `introSeen`; later visits go straight to the saved rung. Old saves default to unseen without losing rung progress.
 
-Every search has a big goal first: “Where can the 4 go in this box?” (or “a box” before choosing one; “Which number can we place?” before choosing a number). A smaller action sits below. The goal stays through action changes and wrong taps. Correct taps put tick-marked praise in the big line instead. Completion leaves only praise and Continue, with no extra instruction. Faint 1–9 labels mark rows and columns. Solo keeps the goal but hides coaching actions.
+Every search has a big goal first: “Where can the 4 go in this box?” (or “a box” before choosing one; “Which number can we place?” before choosing a number). A smaller action sits below. The goal stays through action changes and wrong taps. Correct taps put tick-marked praise in the big line instead. Completion leaves only praise and Continue, with no extra instruction. Faint 1–9 labels mark rows and columns. Solo keeps the goal but hides coaching actions, except for the first R6 rep’s digit-tap cue.
 
 ## R1 — one digit blocks a row or column
 
@@ -35,17 +35,17 @@ Only the first R1 rep shows: “A beam shows a row or column. Stripes mean this 
 
 | Screen | Instruction | What glows | Primary buttons | Right tap / wrong tap |
 |---|---|---|---|---|
-| Pick box | “Tap a box missing 4.” | Empty cells only in boxes missing 4 pulse; boxes already holding 4 are dim | 0; Help | Any empty cell chooses its whole box. “Yes. This box is missing 4.” A box already holding it gets that exact reason. An empty cell is never read as a placed wrong digit. |
+| Pick box | “Tap a box missing 4.” | Empty cells only in boxes missing 4 with exactly one spot left pulse; other boxes are dim | 0; Help | An empty cell in a glowing box chooses its whole box. “Yes. This box is missing 4.” A box already holding it gets that exact reason. An empty cell is never read as a placed wrong digit. |
 | Check / fill / place | R2 instructions, one at a time | R2 blockers, then stripes without an answer outline | 0, then 1: Continue | Same engine checks and calm feedback as R2. Two clean reps unlock R4. |
 
-A player can choose a box that is missing the digit but is not ready. The app accepts that search and offers another box. The deliberately supplied two-spot example is reserved for R5; there is no dead-end exercise at the start of the lesson.
+R3 and R4 accept only boxes with exactly one spot for the chosen digit, as proved by the engine. Tapping another missing box says “Try a glowing box. It has one spot left.” without opening it. R5 onward allows any box missing the digit; the first deliberate two-spot example is at R5.
 
 ## R4 — choose a useful digit
 
 | Screen | Instruction | What glows | Primary buttons | Right tap / wrong tap |
 |---|---|---|---|---|
-| Pick digit | “Try 4: it has the most placed.” | Grid dim; unfinished digit chips show their placed counts | 0; Help | A chip chooses that digit. “Yes. Look for 4.” It is a suggestion, not a required answer. Tied counts are allowed. |
-| Pick box / check / fill / place | R3, then R2 | Only the next grid choices | 0, then 1: Continue | Same checks. Two checked dead ends offer another digit. Two clean placements unlock R5. |
+| Pick digit | “Try 4: it has the most placed.” | Grid dim; “How many are already placed” labels the chips’ counts | 0; Help | A chip chooses that digit. “Yes. Look for 4.” It is a suggestion, not a required answer. Tied counts are allowed. |
+| Pick box / check / fill / place | R3, then R2 | Only the next grid choices | 0, then 1: Continue | Same one-spot box checks as R3. Two clean placements unlock R5. |
 
 The nine digit chips appear only at R4 and only before a digit is chosen. Later independent searches choose a digit by tapping a placed copy on the board.
 
@@ -54,14 +54,14 @@ The nine digit chips appear only at R4 and only before a digit is chosen. Later 
 | Screen | Instruction | What glows | Primary buttons | Right tap / wrong tap |
 |---|---|---|---|---|
 | Check supplied box | “Tap a glowing 4.” | Blockers in an engine-proved two-spot search | 0; Help | Each blocker gets the same short praise and beams as R2. |
-| Two spots | “Try another box.” | None; checked beams and crosses remain | 1: Try another box; Help | Feedback: “Two spots. Not ready yet. That is normal. Try another box.” No mistake is recorded. |
+| Two spots | Big line: “Two spots left. Not ready yet.”; no tick | None; checked beams and crosses remain | 1: Try another box; Help | Small line: “That is normal. Try another box.” No mistake is recorded. |
 | Pick again / check / fill / place | R3, then R2 | Missing boxes, then blockers, then stripes without an answer outline | 0, then 1: Continue | A clean rep must include the two-spot search and a proved placement. Two clean reps unlock R6. |
 
 ## R6 — solo
 
 | Screen | Instruction | What glows | Primary buttons | Right tap / wrong tap |
 |---|---|---|---|---|
-| Pick digit | “Which number can we place?”; no action | Placed copies of unfinished digits | 0; small Help | Tap a placed digit to choose it. “Yes. Look for 4.” |
+| Pick digit | “Which number can we place?”; first rep only: “Tap any number on the board to hunt for it.” | Placed copies of unfinished digits | 0; small Help | Tap a placed digit to choose it. “Yes. Look for 4.” |
 | Pick box | Goal only; no action | Empty cells in boxes missing the chosen digit | 0; Help | Tap an empty cell. “Yes. This box is missing 4.” |
 | Find spot | Goal only; no action | No answer outline; all empty cells in the chosen box stay readable | 0; Help | Tap the forced spot. The engine checks it directly. A blocked cell gets the same calm reason; no beam is supplied. |
 | Place | “✓ Found it! The 4 goes here.” | None | 1: Continue; Help | “✓ Found it! The 4 goes here.” Two clean solo reps finish the lesson. |
@@ -74,11 +74,11 @@ Help opens one sheet; the underlying controls hide. It contains one primary butt
 
 The lesson no longer shows all rules, analogy and a list at once. Each rule gets one screen, a one-line analogy and **Start**, once per lesson run, when used:
 
-- Nearly full area: “Look for a row, column or box with one or two gaps.” / “Like keys: check one place at a time.”
-- Follow-up, after a placement: “After placing a number, check which cells it rules out in other boxes.” / “Like keys: check one place at a time.”
-- One number, before the guided box search (or when the plan first calls for it): “Pick one number. Check each box missing it.” / “Like keys: check one place at a time.”
+- Nearly full area: “Look for a row, column or box that is nearly full.” / “Like looking for lost keys: check one place at a time.”
+- Follow-up, after a placement: “After placing a number, check which cells it rules out in other boxes.” / “Like looking for lost keys: check one place at a time.”
+- One number, before the guided box search (or when the plan first calls for it): “Pick one number. Check each box missing it.” / “Like looking for lost keys: check one place at a time.”
 
-The board hides during each rule screen. Start returns to the real puzzle or opens the saved-rung search. The standalone Practice drill keeps its existing flow. A nearly full rule appears only if that puzzle has such a move.
+The board hides during each rule screen. Start returns to the real puzzle or opens the saved-rung search. When Step 1 names an area, that whole row, column or box is highlighted. The standalone Practice drill keeps its existing flow. A nearly full rule appears only if that puzzle has such a move.
 
 ## Scanning, Play, saves, and limits
 
@@ -92,3 +92,7 @@ The board hides during each rule screen. Start returns to the real puzzle or ope
 ## Local validation of the six beginner gaps (2026-11-04)
 
 `npm test`: 23 checks pass, including once-only intro, migration default, scanning rule timing, R2 no-answer-outline and stripe feedback. `npm run bank`: 560 items verified. Real browser checks at 390×844 in light and dark cover R1, R2 and each scanning rule; reload skips the box intro, R2 has zero answer outlines and 18 coordinate labels, page width is 390. Screenshots and the final annotated code diff are in [`../output/beginner-search-walkthrough.html`](../output/beginner-search-walkthrough.html). No commit or deployment.
+
+## Local follow-up validation (2026-11-04)
+
+The five R3–R6 and scan-intro gaps are addressed locally. `npm test`: 23 checks pass, including mounted R3/R4 choices across all 30 box lesson positions, rejecting early dead ends, R5 headline and free box choices, first-versus-later R6 prompt, and the named scan area's highlight. `npm run bank`: 560 items verified. Bank output is unchanged. Browser access was unavailable in this run, so fresh 390×844 light/dark screenshots and native review remain pending. No commit or deployment. Actual source changes and limits: [`../output/beginner-follow-up-walkthrough.html`](../output/beginner-follow-up-walkthrough.html).
